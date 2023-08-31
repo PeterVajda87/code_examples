@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+
+{% block head %}
+
+{% load carpool_tags %}
+
+{% load static %}
+
+{% endblock %}
+
+{% block body %}
+
+<style>
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        color: #00457e;
+    }
+
+    .users-wrapper {
+        display: flex;
+        flex-flow: column;
+        width: 80vw;
+        margin: 0 auto;
+    }
+
+    .carpool-breadcrumb {
+        margin: 1.5vh 0;
+        margin-left: 10%;
+    }
+
+    tr:nth-child(even) {
+        background-color: rgba(0, 69, 127, 0.15);
+    }
+
+    table {
+        border-collapse: collapse;
+    }
+
+    tr:hover {
+        background-color: rgba(0, 69, 127, 0.3);
+    }
+
+    table input {
+        cursor: pointer;
+    }
+
+</style>
+
+<div class="carpool-breadcrumb"><a href="{% url 'carpool_home' %}">Domů</a> > <a href="{% url 'user_admin' %}">Správa
+        uživatelů</a></div>
+
+<div class="users-wrapper">
+    <table>
+        <thead>
+            <tr>
+                <th>Uživatel</th>
+                <th>Email</th>
+                <th>Administrátor</th>
+                <th>Superuživatel</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for carpool_user in carpool_users %}
+            <tr>
+                <td>{{carpool_user.user.first_name}} {{carpool_user.user.last_name}}</td>
+                <td>{{carpool_user.user.email}}</td>
+                <td style="text-align: center"><input data-user-id="{{carpool_user.id}}" data-role="admin" onchange="updateUser(this)" type="checkbox" name="admin" {% if carpool_user.is_admin %}checked{% endif %} {% if not user.carprofile.is_superuser %}disabled{% endif %}></td>
+                <td style="text-align: center"><input data-user-id="{{carpool_user.id}}" data-role="superuser" onchange="updateUser(this)" type="checkbox" name="superuser" {% if carpool_user.is_superuser %}checked{% endif %} {% if not user.carprofile.is_superuser %}disabled{% endif %}></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {{users}}
+</div>
+
+<script>
+function updateUser(el) {
+    fetch(url = "{% url 'user_admin' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 'user-id': el.dataset.userId, 'role': el.dataset.role, 'checked': el.checked })
+    })
+}
+</script>
+{% endblock %}

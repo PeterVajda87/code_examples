@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kniha zásahů na lince FP09</title>
+    <style>
+
+        #loader {
+            position: absolute;
+            left: 45vw;
+            top: 45vh;
+            z-index: 1;
+            width: 5vw;
+            height: 5vh;
+            display: none;
+        }
+        #loader_spin {
+            width: 6.8vw;
+            height: 6.8vw;
+            border-radius: 50%;
+            border-top: 0.6vw solid #3498db;
+            animation: spin 0.7s ease-in-out infinite;
+            position: absolute;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(10deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #img_logo {
+            height: 5vw;
+            width: 5vw;
+            margin: 1vw 0 0 1vw;
+        }
+
+        @font-face {
+            font-family: 'Noto Sans';
+            src: url('/media/fonts/NotoSans-Regular.ttf');
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Noto Sans';
+            font-size: clamp(12px, 1.5vh, 18px);
+        }
+
+        body {
+            display: flex;
+            flex-flow: column;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        input[type="date"]::-webkit-inner-spin-button,
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            display: none;
+            -webkit-appearance: none;
+        }
+
+        .flex-centered {
+            display: flex !important;
+            justify-content: center;
+            align-items: center;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-bottom: 2px solid black;
+            border-radius: 0%;
+            font-size: clamp(12px, 1.5vh, 18px);
+        }
+
+        section[name="header"] {
+            height: 6vh;
+            color: black;
+            user-select: none;
+            font-size: clamp(16px, 3vh, 40px)
+        }
+
+        section[name="stations"] {
+            height: 20vh;
+            background-color: white;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(8vw, 1fr));
+            grid-gap: 1px;
+        }
+
+        section[name="filters"] {
+            padding: 0 2.5vh;
+            width: 100%;
+            background-color: lightgrey;
+            margin: 0 auto;
+            height: 5vh;
+            display: flex;
+            flex-flow: row;
+            flex-wrap: nowrap;
+            justify-content: space-around;
+            align-items: center;
+            column-gap: 3vh;
+        }
+
+        section[name="filters"] input + label {
+            margin-left: 1rem;
+        }
+
+        section[name="filters"] input,
+        section[name="filters"] label,
+        section[name="filters"] select {
+            display: block;
+        }
+
+        section[name="filters"] select {
+            width: 100%;
+        }
+
+        section[name="filters"] label {
+            margin-right: 1rem;
+        }
+
+        section[name="filters"] div {
+            display: flex;
+            flex-flow: row;
+            align-items: center;
+            justify-content: flex-start;
+        }
+
+        section[name="legend"] {
+            height: 3vh;
+            border: 1px solid lightgray;
+            display: flex;
+            flex-flow: row;
+            justify-content: center;
+            align-items: center;
+            column-gap: 3rem;
+        }
+
+        section[name="station-details"] {
+            height: 69vh;
+            display: flex;
+            flex-flow: row;
+            flex-wrap: wrap;
+        }
+
+        .station-thumbnail {
+            position: relative;
+            overflow: hidden;
+            color: white;
+            display: inline-block;
+            font-size: clamp(12px, 1.5vh, 18px);
+            cursor: pointer;
+            background: black;
+            user-select: none;
+            touch-action: manipulation;
+        }
+
+        .station-thumbnail span:first-child {
+            position: relative;
+            transition: color 600ms cubic-bezier(0.48, 0, 0.12, 1);
+            z-index: 10;
+        }
+
+        .selected-station {
+            background-color: gray;
+        }
+
+        .station-thumbnail span:last-child {
+            color: black;
+            display: block;
+            position: absolute;
+            bottom: 0;
+            transition: all 500ms cubic-bezier(0.48, 0, 0.12, 1);
+            z-index: 100;
+            opacity: 0;
+            top: 50%;
+            left: 50%;
+            width: 100%;
+            transform: translateY(225%) translateX(-50%);
+        }
+
+        .station-thumbnail:after {
+            content: "";
+            position: absolute;
+            bottom: -50%;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: white;
+            transform-origin: bottom center;
+            transition: transform 600ms cubic-bezier(0.48, 0, 0.12, 1);
+            transform: skewY(9.3deg) scaleY(0);
+            z-index: 50;
+        }
+
+        .station-thumbnail:hover:after {
+            transform-origin: bottom center;
+            transform: skewY(9.3deg) scaleY(2);
+        }
+
+        .station-thumbnail:hover span:last-child {
+            transform: translateX(-50%) translateY(-100%);
+            opacity: 1;
+            transition: all 500ms cubic-bezier(0.48, 0, 0.12, 1);
+        }
+
+        .dot {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+            border: 1px solid black;
+        }
+
+        .disabled {
+            pointer-events: none;
+            cursor: progress;
+        }
+
+        .card-action.card-setter {
+            background-color: lightpink;
+        }
+
+        .card-action.card-maintenance {
+            background-color: lightgreen;
+        }
+
+        .card-action.card-technology {
+            background-color: lightskyblue;
+        }
+
+        .card-action.card-kps {
+            background-color: lightyellow;
+        }
+
+        .card-action.card-rnd {
+            background-color: rgb(240, 240, 103);
+        }
+
+        .card-action.card-ie {
+            background-color: rgb(215,223,230);
+        }
+
+        .card-action.card-logistics {
+            background-color: rgb(238,191,113);
+        }
+
+        .closed {
+            background-color: lightgray !important;
+            pointer-events: none !important;
+            user-select: none !important;
+        }
+
+        .card-action {
+            background-color: white;
+            height: 55vh;
+            width: calc(50vw - 4rem);
+            max-width: calc(50vw - 4rem);
+            margin: 1.5rem;
+            box-shadow: 8px 8px black;
+            border: 1px solid black;
+            display: flex;
+            row-gap: 1rem;
+            flex-flow: column;
+            padding: 1rem;
+            font-size: clamp(12px, 1.5vh, 18px);
+            flex-grow: 1;
+            justify-content: space-between;
+        }
+
+        .new-card {
+            cursor: pointer;
+            color: gray;
+            font-size: 10rem;
+            box-shadow: 10px 10px gray;
+            border: 1px solid gray;
+            justify-content: center;
+        }
+
+        .new-card:hover {
+            box-shadow: 10px 10px black;
+            color: black;
+            border: 1px solid black;
+        }
+
+        .card-action input {
+            margin: 0 1rem;
+            border: 0;
+            border-bottom: 1px dashed black;
+            flex-grow: 1;
+            flex-shrink: 1;
+            overflow: hidden;
+            font-size: clamp(12px, 1.5vh, 18px);
+        }
+
+        .card-action textarea {
+            display: block; 
+            width: 100%; 
+            resize: vertical;
+            height: 50%;
+        }
+        
+        .card-action input:focus {
+            border-bottom: 1px solid black;
+        }
+
+        .card-row {
+            display: flex;
+            flex-flow: row;
+            flex-wrap: wrap;
+            align-items: flex-start;
+        }
+
+        span#station-label {
+            display: inline-block;
+            padding-right: 0.25rem;
+        }
+
+        .line-issue {
+            border: 1px solid black;
+            padding: 0.25rem 0.5rem;
+            margin: 0.25rem 0.5rem;
+            cursor: default;
+        }
+
+        div.card-button,
+        label.card-button {
+            padding: 0.5rem;
+            background-color: buttonface;
+        }
+
+        div.card-button:hover,
+        input[type="button"]:hover,
+        label.card-button:hover {
+            background-color: black;
+            color: white;
+        }
+
+        input[type="button"] {
+            padding: 0.5rem;
+            border: none; 
+            cursor: pointer;
+        }
+
+        .status-open {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-closed {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: gray;
+        }
+
+        .technology {
+            background-color: lightskyblue;
+        }
+
+        .setter {
+            background-color: lightpink;
+        }
+
+        .maintenance {
+            background-color: lightgreen;
+        }
+
+        .kps {
+            background-color: lightyellow;
+        }
+
+        .rnd {
+            background-color: rgb(240, 240, 103);
+        }
+
+        .ie {
+            background-color: rgb(215,223,230);
+        }
+
+        .logistics {
+            background-color: rgb(238,191,113);
+        }
+
+        .backlog {
+            background-color: rgba(255, 0, 0, 0.5) !important;
+        }
+
+        .closed.backlog {
+            background-color: lightgray !important;
+        }
+
+        span.text {
+            display: flex;
+            flex-flow: row;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+    </style>
+</head>
+<body>
+    <section name="header" class="flex-centered" onclick="location.reload()" style="cursor: pointer">
+        Kniha zásahů na lince FP09
+    </section>
+
+    <section name="stations">
+        {% for station in stations %}
+        <div class="station-thumbnail" data-station="{{station}}"><span class="text" id="{{station}}-text">{{station}}</span><span class="text" id="{{station}}-downtimes">Tady taky neco bude</span></div>
+        {% endfor %}
+    </section>
+
+    <section name="legend" id="legend">
+        <div style="display: flex; flex-flow: row; justify-content: center; align-items: center;">
+            <div class="dot maintenance"></div>
+            <div style="margin-right: 1rem;">údržba</div>
+        </div>
+        <div style="display: flex; flex-flow: row; justify-content: center; align-items: center;">
+            <div class="dot setter"></div>
+            <div style="margin-right: 1rem;">seřizovač</div>
+        </div>
+        <div style="display: flex; flex-flow: row; justify-content: center; align-items: center;">
+            <div class="dot technology"></div>
+            <div style="margin-right: 1rem;">technolog</div>
+        </div>
+        <div style="display: flex; flex-flow: row; justify-content: center; align-items: center;">
+            <div class="dot ie"></div>
+            <div style="margin-right: 1rem;">IE</div>
+        </div>
+        <div style="display: flex; flex-flow: row; justify-content: center; align-items: center;">
+            <div class="dot quality"></div>
+            <div style="margin-right: 1rem;">kvalita</div>
+        </div>
+        <div style="display: flex; flex-flow: row; justify-content: center; align-items: center;">
+            <div class="dot logistics"></div>
+            <div style="margin-right: 1rem;">logistika</div>
+        </div>
+        <div style="display: flex; flex-flow: row; justify-content: center; align-items: center;">
+            <div class="dot kps"></div>
+            <div style="margin-right: 1rem;">KPS</div>
+        </div>
+        <div style="display: flex; flex-flow: row; justify-content: center; align-items: center;">
+            <div class="dot rnd"></div>
+            <div style="margin-right: 1rem;">RnD</div>
+        </div>
+        <div style="display: flex; flex-flow: row; justify-content: center; align-items: center;">
+            <div class="dot backlog"></div>
+            <div style="margin-right: 1rem;">po termínu</div>
+        </div>
+        <div style="display: flex; flex-flow: row; justify-content: center; align-items: center;">
+            <div class="dot closed"></div>
+            <div style="margin-right: 1rem;">uzavřeno</div>
+        </div>
+    </section>
+
+    <section name="filters" id="filters">
+        <div style="width: 35%">
+            <label for="planned_finish__gte">Termín</label><input type="date" name="planned_finish__gte">
+            <label for="planned_finish__lte">- </label><input type="date" name="planned_finish__lte">
+        </div>
+        <div style="width: 25%">
+            <label for="responsible">Odpovědný:</label><select name="responsible">
+                {% for responsible in responsibles %}
+                    <option value="{{responsible.first_name}} {{responsible.last_name}}">{{responsible.last_name}} {{responsible.first_name}}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div style="width: 25%">
+            <label for="category">Kategorie:</label><select name="category">
+                {% for category in categories %}
+                <option value="{{category}}">{{category}}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div style="width: 10%">
+            <label for="status">I uzavřené?</label><input type="checkbox" checked>
+        </div>
+    </section>
+
+    <section name="station-details" id="station-details">
+    </section>
+    
+<datalist id="priorities">
+    <option value="L">
+    <option value="M">
+    <option value="H">
+</datalist>
+
+<datalist id="categories">
+    <option value="seřizovač">
+    <option value="údržba">
+    <option value="technologie">
+    <option value="IE">
+    <option value="kvalita">
+    <option value="KPS">
+    <option value="RnD">
+    <option value="logistika">
+</datalist>
+
+<datalist id="statuses">
+    <option value="0%">
+    <option value="25%">
+    <option value="50%">
+    <option value="75%">
+    <option value="100%">
+</datalist>
+
+<datalist id="responsibles">
+    {% for responsible in responsibles %}
+    <option value="{{responsible.last_name}} {{responsible.first_name}}">
+    {% endfor %}
+</datalist>
+
+<template id="action-comment">
+    <div style="display: flex; width: 95%; margin: 0.25rem 0;">
+        <input type="date" style="display: block; width: 20%; height:fit-content"">
+        <input type="text" style="display: block; width: 60%; height:fit-content">
+        <select name="action-owner">
+            <option value="" selected></option>
+            <option value="seřizovač">seřizovač</option>
+            <option value="technologie">technologie</option>
+            <option value="údržba">údržba</option>
+            <option value="IE">IE</option>
+            <option value="kvalita">kvalita</option>
+            <option value="logistika">logistika</option>
+            <option value="KPS">KPS</option>
+            <option value="RnD">RnD</option>       
+            <option value="neúčinný">neúčinný</option>       
+        </select>
+        <input type="button" onclick="deleteActionComment(this)" value="smazat" style="display: block; width: 15%; height:fit-content; padding: 0 0.5rem">
+    </div>
+</template>
+
+<template id="card-action">
+    <div class="card-action">
+        <div class="card-row">
+            <div style="flex-grow: 3; display: flex; color: red; font-weight: 900;"><span id="station-label"></span>Název:<input type="text" name="title" style="width: 10ch"></div>
+            <div style="flex-grow: 1; display: flex; color: red; font-weight: 900;">Odpovědný: 
+                <select name="responsible" style="width: 100%; margin: 0 1rem">
+                    {% for responsible in responsibles %}
+                        <option value="{{responsible.first_name}} {{responsible.last_name}}">{{responsible.last_name}} {{responsible.first_name}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    
+        <div class="card-row" style="flex-wrap: nowrap">
+            <div style="display: flex; width: 32%">Kategorie: <select onchange="switchCardOwner(this)" name="category">
+                <option value="seřizovač">seřizovač</option>
+                <option value="technologie">technologie</option>
+                <option value="údržba">údržba</option>
+                <option value="IE">IE</option>
+                <option value="kvalita">kvalita</option>
+                <option value="logistika">logistika</option>
+                <option value="KPS">KPS</option>
+                <option value="RnD">RnD</option>
+            </select></div>
+            <div style="display: flex; width: 15%">Prio: <select name="priority">
+                <option value="L">L</option>
+                <option value="M">M</option>
+                <option value="H">H</option>
+            </select></div>
+            <div style="display: flex; width: 18%">Stav: <select name="status">
+                <option value="0%">0%</option>
+                <option value="25%">25%</option>
+                <option value="50%">50%</option>
+                <option value="75%">75%</option>
+                <option value="100%">100%</option>
+            </select></div>
+            <div style="display: flex; width: 35%; color: red; font-weight: 900;">Termín: <input type="date" name="planned_finish""></div>
+        </div>
+    
+        <div class="card-row">
+            <div style="flex-grow: 1; flex-shrink: 1; display: flex">Popis: <textarea name="description" rows="2"></textarea></div>
+        </div>
+    
+        <div class="card-row" style="overflow: auto; min-height: 25%">
+            <div style="width: 100%">Akce/Komentáře:</div>
+            <div style="width: 100%" class="hidden" id="actions-comments"></div>
+            <div style="flex-grow: 1; flex-shrink: 1; display: flex; align-items: flex-end">
+                <input type="date" style="width: 20%">
+                <input type="text" style="width: 60%">
+                <input type="button"  style="width: 20%" value="Přidat" onclick="addAction(this)">
+            </div>
+        </div>
+    
+        <div class="card-row" style="overflow: auto">
+            <div style="width: 100%">Řeší následující problémy na lince:</div>
+            <div id="line-issues-select" style="width: 100%; overflow: auto"></div>
+            <div class="line-issue" style="border: none; cursor: pointer" onclick="addLineIssues(this)">+ přidat</div>
+        </div>
+
+        <div class="card-row" style="justify-content: space-between; align-items: baseline; min-height: 10%;">
+            <div class="card-button" style="cursor: pointer" id="save-action" onclick="saveAction(this)">Vytvořit</div>
+            <div><label for="finish-date" class="card-button hidden" style="cursor: pointer" id="close-button" onclick="finishAction(this)">Uzavřít</label><input type="date" class="hidden" name="finish-date"></div>
+            <div class="card-button hidden" style="cursor: pointer" id="delete-button" onclick="deleteAction(this)">Smazat</div>
+        </div>
+    </div>
+</template>
+
+<div id="loader">
+    <div id="loader_spin"></div>
+    <img id="img_logo" src="/static/ImgForAll/logoBlack.svg" alt="" id="img">
+</div>
+
+<script>
+    const stations = document.querySelectorAll('.station-thumbnail');
+    const stationDetails = document.getElementById('station-details');
+    const filters = document.querySelector('section[name="filters"]');
+    const url = "{% url 'fp09:service_book' %}";
+    var currentStation = undefined;
+    var currentCard = undefined;
+    var activeFilters = new Map();
+
+    addEventListener('DOMContentLoaded', () => {
+        showStatusDotsForAll();
+        getStationActions(activeFilters).then(data => showStationActions(data));;
+    });
+
+    filters.querySelectorAll('input, select').forEach(filter => {
+        filter.addEventListener('change', (e) => handleFilter(e.target));
+    })
+
+    function handleFilter(filter) {
+        if (filter.value == "" || filter.value == " ") {
+            activeFilters.delete(filter.name);
+        } else {
+            activeFilters.set(filter.name, filter.value);
+        }
+        
+        filterCards(currentStation);
+    }
+
+    function clearFilters() {
+        activeFilters.delete('category');
+        activeFilters.delete('station');
+        activeFilters.delete('planned_finish__gte');
+        activeFilters.delete('planned_finish__lte');
+        document.querySelector('section[name="filters"]').querySelectorAll('input').forEach(input => input.value = '');
+        document.querySelector('section[name="filters"]').querySelectorAll('select:not([name="responsible"]').forEach(select => select.options[0].selected = true);
+    }
+    
+    async function filterCards(cards) {
+        // let stationsCards = document.querySelectorAll('[class*="card-action"]:not([class*="new-card"])');
+        document.querySelectorAll('[class*="card-action"]:not([class*="new-card"])').forEach(card => card.remove());
+        await getStationActions(activeFilters).then(data => showStationActions(data));
+        // activeFilters.forEach((name, value) => {
+        //     let stationsCards = document.querySelectorAll('[class*="card-action"]:not([class*="new-card"])');
+        //     console.log(name, value);
+        // })
+    };
+ 
+    async function getStatusDotsData(station) {
+        return new Promise(async (resolve) => { 
+            const resp = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 'station': station, 'action': 'getStatusDots' })
+            });
+
+            let stationThumbnailText = document.getElementById(`${station}-text`);
+            stationThumbnailText.querySelectorAll('div[class*="status-open"]').forEach(dot => dot.remove());
+            let status = await resp.json();
+
+            for (i = 0; i < status['status']['open_technology']; i++) {
+                let statusDot = document.createElement('div');
+                statusDot.classList.add('status-open', 'technology');
+                stationThumbnailText.append(statusDot);
+            }
+
+            for (i = 0; i < status['status']['open_setter']; i++) {
+                let statusDot = document.createElement('div');
+                statusDot.classList.add('status-open', 'setter');
+                stationThumbnailText.append(statusDot);
+            }
+
+            for (i = 0; i < status['status']['open_maintenance']; i++) {
+                let statusDot = document.createElement('div');
+                statusDot.classList.add('status-open', 'maintenance');
+                stationThumbnailText.append(statusDot);
+            }
+
+            for (i = 0; i < status['status']['open_ie']; i++) {
+                let statusDot = document.createElement('div');
+                statusDot.classList.add('status-open', 'ie');
+                stationThumbnailText.append(statusDot);
+            }
+
+            for (i = 0; i < status['status']['open_kps']; i++) {
+                let statusDot = document.createElement('div');
+                statusDot.classList.add('status-open', 'kps');
+                stationThumbnailText.append(statusDot);
+            }
+
+            for (i = 0; i < status['status']['open_logistics']; i++) {
+                let statusDot = document.createElement('div');
+                statusDot.classList.add('status-open', 'logistics');
+                stationThumbnailText.append(statusDot);
+            }
+
+            for (i = 0; i < status['status']['backlog']; i++) {
+                let statusDot = document.createElement('div');
+                statusDot.classList.add('status-open', 'backlog');
+                stationThumbnailText.append(statusDot);
+            }
+
+            for (i = 0; i < status['status']['closed']; i++) {
+                let statusDot = document.createElement('div');
+                statusDot.classList.add('status-closed');
+                stationThumbnailText.append(statusDot);
+            }
+
+            resolve('finished');
+        })
+    }
+
+    async function getDowntimesSum(station) {
+        return new Promise(async (resolve) => {
+              const resp = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 'station': station, 'action': 'getDowntimesSum' })
+            });
+
+            let stationThumbnailText = document.getElementById(`${station}-downtimes`);
+            let downtimesSum = await resp.json();
+
+            stationThumbnailText.textContent = `${downtimesSum['downtimes']} minut prostojů za posledních 30 dnů`;
+            resolve()
+        })
+    }
+
+    function showStatusDotsForAll() {
+        let listOfPromisesForDots = new Array;
+        let listOfPromisesForSum = new Array;
+        stations.forEach(station => {
+            listOfPromisesForDots.push(getStatusDotsData(station.dataset.station));       
+            listOfPromisesForSum.push(getDowntimesSum(station.dataset.station));
+        })
+    }
+
+
+    async function finishAction(el) {
+        await saveAction(el.closest('.card-action').querySelector('#save-action'));
+        let dateInput = el.parentElement.querySelector('input[type="date"]');
+        if (!(dateInput.value)) {
+            window.alert('Zadejte datum uzavření akce');
+            return false;
+        }
+
+        let card = el.closest('.card-action');
+    
+        const resp = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({'action': 'closeAction', 'id': card.dataset.id, 'finish': dateInput.value})
+        })
+        
+        await resp.json();
+
+        card.querySelector('label').textContent = 'Uzavřeno';
+        card.className = 'card-action closed';
+        card.dataset.closed = true;   
+    }
+    
+    function recolorCard(card, cardOwner) {
+        switch (cardOwner) {
+            case 'seřizovač':
+                card.className = 'card-action';
+                card.classList.add('card-setter');
+                break;
+
+            case 'údržba':
+                card.className = 'card-action';
+                card.classList.add('card-maintenance');
+                break;
+
+            case 'technologie':
+                card.className = 'card-action';
+                card.classList.add('card-technology');
+                break;
+
+            case 'IE':
+                card.className = 'card-action';
+                card.classList.add('card-ie');
+                break;
+
+            case 'kvalita':
+                card.className = 'card-action';
+                card.classList.add('card-quality');
+                break;
+
+            case 'KPS':
+                card.className = 'card-action';
+                card.classList.add('card-kps');
+                break;
+
+            case 'RnD':
+                card.className = 'card-action';
+                card.classList.add('card-rnd');
+                break;
+
+            case 'logistika':
+                card.className = 'card-action';
+                card.classList.add('card-logistics');
+                break;
+        }
+    }
+
+    function switchCardOwner(el) {
+        let card = el.parentElement.parentElement.parentElement;
+        let cardOwner = el.value;
+        recolorCard(card, cardOwner);
+    }
+    
+    function deleteActionComment(el) {
+        el.parentElement.remove();
+    }
+
+    async function deleteAction(el) {
+        let card = el.parentElement.parentElement;
+        let cardId = card.dataset.id;
+        const resp = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 'station': currentStation, 'action': 'deleteCard', 'id': cardId })
+        })
+        let jsonResp = await resp.json();
+        showStatusDotsForAll();
+        card.remove();
+    }
+
+    function addAction(el = undefined, actionDate = undefined, actionText = undefined, id = undefined, owner = undefined) {
+        const template = document.querySelector('template[id="action-comment"]');
+        const clone = template.content.cloneNode(true);
+        
+        actionDate = actionDate ? actionDate : el.parentElement.querySelector('input[type="date"]').value;
+        actionText = actionText ? actionText : el.parentElement.querySelector('input[type="text"]').value;
+
+        clone.querySelector('input[type="date"]').value = actionDate;
+        clone.querySelector('input[type="text"]').value = actionText;
+        clone.querySelector('input[type="text"]').title = actionText;
+        clone.querySelector('select').value = owner;
+        clone.querySelector('div').dataset.id = id;
+        
+        if (el) {
+            el.parentElement.querySelector('input[type="date"]').value = '';
+            el.parentElement.querySelector('input[type="text"]').value = '';
+            el.closest('.card-row').querySelector('#actions-comments').append(clone);
+            el.closest('.card-row').querySelector('#actions-comments').classList.remove('hidden');
+        } else {
+            currentCard.querySelector('#actions-comments').append(clone);
+            currentCard.querySelector('#actions-comments').classList.remove('hidden');
+            
+        }
+    }
+ 
+    async function addLineIssues(el, stationForActions = undefined) {
+        el.classList.add('hidden');
+        await getLineIssues(el, stationForActions).then(resp => displayLineIssues(resp));
+    }
+
+    async function getLineIssues(el = undefined, stationForActions = undefined) {
+        const resp = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 'station': el ? el.parentElement.parentElement.dataset.station : stationForActions, 'action': 'getStationIssues' })
+        })
+        return [resp.json(), el];
+    }
+
+    async function displayLineIssues(data) {
+        stationData = await data[0];
+        el = data[1];
+        el.previousElementSibling.innerHTML = '';
+        stationData['downtimes'].forEach(downtime => {
+            let option = document.createElement('div');
+            let checkbox = document.createElement('input');
+            let text = document.createElement('span');
+            text.title = downtime[1];
+            text.style = 'cursor: pointer';
+            text.textContent = downtime[0];
+            checkbox.type = "checkbox";
+            option.append(checkbox);
+            option.append(text);
+            el.previousElementSibling.appendChild(option);
+            text.addEventListener('click', (e) => {
+                if (e.target.previousElementSibling.checked) {
+                    e.target.previousElementSibling.checked = false;
+                } else {
+                    e.target.previousElementSibling.checked = true;
+                }
+            })
+        });
+        el.previousElementSibling.classList.remove('hidden');
+    }
+
+    function addNewCard(e) {
+        const template = document.querySelector('template[id="card-action"]');
+        const clone = template.content.cloneNode(true);
+        clone.querySelector('div').setAttribute('data-station', currentStation);
+        clone.querySelector('span#station-label').textContent = `(${currentStation}) `;
+        currentCard = clone.querySelector('div');
+        try {
+            document.getElementById('new-card').insertAdjacentElement('afterend', clone.querySelector('.card-action'));
+        } catch {
+            document.getElementById('station-details').append(clone.querySelector('.card-action'));
+        }
+
+        return true
+    }
+
+    async function saveAction(el) {
+        currentCard = el.closest('.card-action');
+        if (!(currentCard.querySelector('input[name="planned_finish"]').value)) {
+            window.alert('Zadejte termín akce');
+            return false;
+        };
+        if (!(currentCard.querySelector('input[name="title"]').value)) {
+            window.alert('Zadejte název akce');
+            return false;
+        }
+        el.textContent = 'Uloženo';
+        sendActionData(el).then((resp) => {
+            el.textContent = 'Uložit';
+            currentCard.dataset.id = resp['id'];
+            getStatusDotsData(currentCard.dataset.station);
+            recolorCard(currentCard, currentCard.querySelector('select[name="category"]').value);
+            currentCard.querySelector('#delete-button').classList.remove('hidden');
+            currentCard.querySelector('#close-button').classList.remove('hidden');
+            currentCard.querySelector('#close-button').nextElementSibling.classList.remove('hidden');
+            if (currentCard.dataset.backlog == 'true') {
+                currentCard.classList.add('backlog');
+            } 
+            if (el.closest('.card-action').dataset.closed == 'true') {
+                currentCard.classList.add('closed');
+            } 
+        });
+    }
+
+    async function sendActionData(el) {
+        let card = el.parentElement.parentElement;
+        let title = card.querySelector('input[name="title"]').value;
+        let responsible = card.querySelector('select[name="responsible"]').value;
+        let category = card.querySelector('select[name="category"]').value;
+        let priority = card.querySelector('select[name="priority"]').value;
+        let status = card.querySelector('select[name="status"]').value;
+        let planned_finish = card.querySelector('input[name="planned_finish"]').value;
+        let description = card.querySelector('textarea[name="description"]').value;
+        let options = card.querySelector('#line-issues-select').querySelectorAll('div');
+        let downtimes_addressed = [];
+        options.forEach(option => {
+            if (option.querySelector('input').checked == true) {
+                downtimes_addressed.push(option.querySelector('span').textContent);
+            }
+        })
+        let actions = Array.from(card.querySelector('#actions-comments').querySelectorAll('div')).map(div => Array.from(div.querySelectorAll('input:not([type="button"]), select')).map(input => input.value)) 
+
+        const resp = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                'station': currentStation, 
+                'action': 'setStationAction', 
+                'data': {
+                    'title': title,
+                    'responsible': responsible,
+                    'category': category,
+                    'priority': priority,
+                    'status': status,
+                    'planned_finish': planned_finish,
+                    'description': description,
+                    'downtimes_addressed': downtimes_addressed,
+                    'actions': actions,
+                },
+            })
+        })
+
+        return resp.json();
+    }
+
+    stations.forEach(station => {
+        station.addEventListener('click', (e) => {
+            clearFilters();
+            let stationCard = e.target;
+            document.getElementById('station-details').innerHTML = '<div class="card-action flex-centered new-card" id="new-card" onclick="addNewCard(this)">+</div>';
+            stations.forEach(station => station.classList.remove('selected-station'));
+            station.classList.add('selected-station');
+            stationCard.classList.add('active');
+            stationDetails.classList.remove('hidden');
+            stationDetails.dataset.activeStation = e.target.dataset.station;
+            document.querySelectorAll('div[class*="card-action"][data-station]').forEach(card => card.remove());
+            currentStation = e.target.parentElement.dataset.station;
+            getStationActions(activeFilters).then(data => showStationActions(data));
+        })
+    })
+
+
+    async function getStationActions(filters = undefined) {
+        document.querySelectorAll('[class="card-action"]').forEach(card => card.remove());
+        if (!(currentStation) && document.querySelector('.selected-station')) {
+            currentStation = document.querySelector('.selected-station').dataset.station;
+        }
+        const resp = await fetch(url, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({'station': currentStation ? currentStation : 'all', 'action': 'getStationActions', 'filters': filters ? Object.fromEntries(filters) : undefined})
+        })
+
+        return resp.json();
+    }
+
+    async function showStationActions(actions) {
+        document.getElementById("loader").style.display = "block";
+        document.body.style.pointerEvents = "none";
+
+        for (const [key, value] of Object.entries(actions)) {
+            addNewCard();
+            stationForActions = value['station']; 
+            currentCard.dataset.id = value['id'];
+            currentCard.dataset.closed = value['closed'];
+            currentCard.dataset.backlog = value['backlog'];
+            currentCard.dataset.station = value['station'];
+            currentCard.querySelector('span#station-label').textContent = `(${value['station']}) `;
+            currentCard.querySelector('#save-action').textContent = 'Uložit';
+            currentCard.querySelector('input[name="title"]').value = key;
+    
+            Array.from(currentCard.querySelector('select[name="responsible"]').options).forEach(option => {
+                if (option.value == value['responsible']) {
+                    option.selected = true;
+                }
+            })
+            Array.from(currentCard.querySelector('select[name="category"]').options).forEach(option => {
+                if (option.value == value['category']) {
+                    option.selected = true;
+                }
+            });            
+            Array.from(currentCard.querySelector('select[name="priority"]').options).forEach(option => {
+                if (option.value == value['priority']) {
+                    option.selected = true;
+                }
+            });
+            Array.from(currentCard.querySelector('select[name="status"]').options).forEach(option => {
+                if (option.value == value['status']) {
+                    option.selected = true;
+                }
+            });            
+            currentCard.querySelector('input[name="planned_finish"]').value = value['planned_finish'];
+            currentCard.querySelector('textarea[name="description"]').value = value['description'];
+            
+            value['actions'].forEach(actionComment => {
+                addAction(undefined, actionComment[1], actionComment[0], actionComment[2], actionComment[3]);
+            })
+            
+            recolorCard(currentCard, value['category']);
+
+            if (currentCard.dataset.backlog == 'true') {
+                currentCard.classList.add('backlog');
+            }
+
+            if (currentCard.dataset.closed == 'true') {
+                currentCard.classList.add('closed');
+                currentCard.querySelector('label[for="finish-date"]').textContent = 'Uzavřeno';
+                currentCard.querySelector('input[name="finish-date"]').value = value['finish'];
+            }
+            
+            if (value['downtimes_addressed'].length > 0) {
+                await addLineIssues(currentCard.querySelector('div.line-issue'), stationForActions);
+                let select = currentCard.querySelector('#line-issues-select');
+                let options = select.querySelectorAll('div')
+                options.forEach(option => {
+                    let optionText = option.querySelector('span').textContent;
+                    if (value['downtimes_addressed'].includes(optionText)) {
+                        option.querySelector('input').checked = true;
+                    }
+                })
+            }
+            
+            currentCard.querySelector('#delete-button').classList.remove('hidden');
+            currentCard.querySelector('#close-button').classList.remove('hidden');
+            currentCard.querySelector('#close-button').nextElementSibling.classList.remove('hidden');
+        }
+
+        document.getElementById("loader").style.display = "none";
+        document.body.style.pointerEvents = "auto";
+
+    }
+</script>
+
+</body>
+</html>

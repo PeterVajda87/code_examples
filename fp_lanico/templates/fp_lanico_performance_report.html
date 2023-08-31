@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FP Lanico Performance Report</title>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script type="text/javascript" src="/static/isoweek.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.11.0/dist/pptxgen.bundle.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.0.0-rc.5/dist/html2canvas.min.js">
+    </script>
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <style>
+        @font-face {
+            font-family: 'Noto Sans';
+            src: url('/media/fonts/NotoSans-Regular.ttf');
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings:
+                'FILL' 0,
+                'wght' 400,
+                'GRAD' 0,
+                'opsz' 48
+        }
+
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Noto Sans';
+        }
+
+        img {
+            max-width: 100%;
+            height: calc(1/3 * 90vh);
+            object-fit: cover;
+        }
+
+        .charts-wrapper {
+            display: flex;
+            flex-flow: row;
+            flex-wrap: wrap;
+            height: 95vh;
+            width: 100vw;
+        }
+
+        .chart {
+            width: calc(99vw / 2);
+            height: calc(92vh / 3);
+        }
+
+        .settings {
+            width: 100vw;
+            height: 5vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #loader {
+            position: absolute;
+            left: 45vw;
+            top: 45vh;
+            z-index: 1;
+            width: 5vw;
+            height: 5vh;
+        }
+
+        #loaderSpin {
+            width: 6.8vw;
+            height: 6.8vw;
+            /* border: 10px solid #f3f3f3; */
+            border-radius: 50%;
+            border-top: 0.6vw solid #3498db;
+            animation: spin 0.7s ease-in-out infinite;
+            position: absolute;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(10deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        #imgLogo {
+            height: 5vw;
+            width: 5vw;
+            margin: 1vw 0 0 1vw;
+        }
+
+        .imgForDown {
+            display: none;
+        }
+
+        #toPPTX {
+            margin-left: 1vw;
+            display: none;
+            transition: scale 300ms;
+        }
+
+        #toPPTX:hover {
+            cursor: pointer;
+            scale: 1.2;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="settings">
+        <label>Od
+            <input type="date" name="date-from" id="date-from">
+        </label>
+        <label style="display: flex; width: 10vw; flex-flow: row; justify-content: center; column-gap: 0.5vw">
+            <input type="checkbox" checked onchange="setShifts()" value="R">R
+            <input type="checkbox" checked onchange="setShifts()" value="O">O
+            <input type="checkbox" checked onchange="setShifts()" value="N">N
+        </label>
+        <label>Do
+            <input type="date" name="date-to" id="date-to">
+        </label>
+        <span class="material-symbols-outlined" onclick="callSavePptx()" id="toPPTX">
+            photo_camera
+        </span>
+        <button type="button" class="btn" onclick=submitForm()>Calculate</button>
+    </div>
+
+
+    <div class="charts-wrapper">
+        <div class="chart" id="cycle_time"></div>
+        <!-- <div class="chart" id="average_shift_output"></div> -->
+        <div class="chart" id="oee"></div>
+        <!-- <div class="chart" id="rq"></div>
+        <div class="chart" id="total_time_loss"></div>
+        <div class="chart" id="details"></div> -->
+
+    </div>
+
+    <div id="loader" style="display: none;">
+        <div id="loaderSpin"></div>
+        <img id="imgLogo" src="/static/ImgForAll/logoBlack.svg" alt="" id="img">
+    </div>
+    <div id="hiddenCanvases">
+
+    </div>
+
+
+    <script>
+
+        // globalni promenne 
+        var shifts = ['R', 'O', 'N'];
+        var dateTo = new Date();
+        var firstDay = new Date(2023, 0, 2)
+        var dateFrom = new Date();
+        dateFrom.setDate(dateTo.getDate() - 10);
+        dateFrom = new Date(Math.max(dateFrom, firstDay))
+        console.log(dateFrom);
+        document.querySelector('[name="date-from"]').value = dateFrom.toISOString().slice(0, 10)
+        document.querySelector('[name="date-to"]').value = dateTo.toISOString().slice(0, 10)
+
+        var weeksRange = false;
+
+        //graf setup
+        google.charts.load('current', { 'packages': ['corechart'] });
+        google.charts.setOnLoadCallback(submitForm);
+
+        function setShifts() {
+            shifts = [];
+            document.querySelectorAll('input:checked').forEach(checkbox => {
+                shifts.push(checkbox.value);
+            })
+        }
+
+        //vytvoreni grafu po tom co uzivatel selectne 
+        function updateCharts(chartsData) {
+            document.querySelector(".charts-wrapper").style.visibility = "visible";
+            document.getElementById("loader").style.display = "none";
+            document.getElementById("toPPTX").style.display = "block"
+
+            updateCycleTimeChart(chartsData['xAxis'], chartsData['chartsData']['cycleTime']);
+            // updateAverageShiftOutputChart(chartsData['xAxis'], chartsData['chartsData']['averageShiftOutput']);
+            updateOEEchart(chartsData['xAxis'], chartsData['chartsData']['OEE']);
+            // updateRQchart(chartsData['xAxis'], chartsData['chartsData']['RQ']);
+            // updateLossesChart(chartsData['xAxis'], chartsData['chartsData']['losses']);
+        }
+
+        let screencapDetails = false
+
+        // -------------------------- losses char --------------------------
+        function updateLossesChart(xAxis, yData) {
+            var data = new google.visualization.DataTable();
+            data.addColumn('date', 'Period');
+            data.addColumn('number', 'Production');
+            data.addColumn('number', 'Quality');
+            data.addColumn('number', 'Log');
+            data.addColumn('number', 'C/O');
+            data.addColumn('number', 'Technical');
+            data.addColumn('number', 'Org');
+            data.addColumn('number', 'Paint');
+            data.addColumn('number', 'Performance');
+
+
+            maxValue = 0;
+            dayValue = [];
+            let reminderFromDayArray = []
+
+            xAxis.forEach((xTick, xIndex) => {
+
+                actualValue = checkForZeroValues(parseInt(yData['quality'][xIndex])) + checkForZeroValues(parseInt(yData['logistics'][xIndex])) + checkForZeroValues(parseInt(yData['changeover'][xIndex])) + checkForZeroValues(parseInt(yData['technical'][xIndex])) + checkForZeroValues(parseInt(yData['organization'][xIndex])) + checkForZeroValues(parseInt(yData['paint'][xIndex])) + checkForZeroValues(parseInt(yData['performance'][xIndex]))
+                dayValue.push(actualValue)
+
+                if (actualValue > maxValue) {
+                    maxValue = actualValue;
+                }
+
+            })
+
+            xAxis.forEach((xTick, xIndex) => {
+                //simonEdit
+                let reminderFromDay = maxValue - dayValue[xIndex]
+
+                //conversion to percentile - maxValue is 100% 
+                let qualityPercentile = (checkForZeroValues(parseInt(yData['quality'][xIndex])) / maxValue) * 100
+                let logisticsPercentile = (checkForZeroValues(parseInt(yData['logistics'][xIndex])) / maxValue) * 100
+                let changeoverPercentile = (checkForZeroValues(parseInt(yData['changeover'][xIndex])) / maxValue) * 100
+                let technicalPercentile = (checkForZeroValues(parseInt(yData['technical'][xIndex])) / maxValue) * 100
+                let organizationPercentile = (checkForZeroValues(parseInt(yData['organization'][xIndex])) / maxValue) * 100
+                let paintPercentile = (checkForZeroValues(parseInt(yData['paint'][xIndex])) / maxValue) * 100
+                let PerfCheckedForZeroPercentile = (checkForZeroValues(parseInt(yData['performance'][xIndex])) / maxValue) * 100
+                let reminderFromDayPercentile = (reminderFromDay / maxValue) * 100
+
+                reminderFromDayArray.push(reminderFromDay)
+
+                data.addRow([new Date(xTick.toString()), reminderFromDayPercentile, qualityPercentile, logisticsPercentile, changeoverPercentile, technicalPercentile, organizationPercentile, paintPercentile, PerfCheckedForZeroPercentile]);
+            })
+
+            var options = {
+                title: 'Time losses (%)',
+                seriesType: 'bars',
+                series: [{ color: '#ef476f', visibleInLegend: true }, { color: '#f78c6b', visibleInLegend: true }, { color: '#ffd166', visibleInLegend: true }, { color: '#83d483', visibleInLegend: true }, { color: '#06d6a0', visibleInLegend: true }, { color: '#0cb0a9', visibleInLegend: true }, { color: '#118ab2', visibleInLegend: true }, { color: '#073b4c', visibleInLegend: true }],
+                legend: { position: 'top', alignment: 'start' },
+                isStacked: true,
+                explorer: {
+                    axis: 'vertical',
+                    keepInBounds: true,
+                    maxZoomIn: 4.0
+                },
+                hAxis: {
+                    ticks: (() => {
+                        ticksList = []
+                        xAxis.forEach(xTick => {
+                            ticksList.push({ v: new Date(xTick.split("-").join(",")), f: setDateFormat(xTick) });
+                        })
+                        return ticksList
+                    })(),
+                }
+            };
+
+            let dataArray = ['reminderFromDay', 'quality', 'logistics', 'changeover', 'technical', 'organization', 'paint', 'performance']
+            let nameArray = ['Production', 'Quality', 'Log', 'C/O', 'Technical', 'Org', 'Paint', 'Performance']
+
+            function checkForZeroValues(itemToCheck) {
+
+                if (itemToCheck > 0) {
+                    return itemToCheck
+                } else {
+                    return 0
+                }
+
+            }
+
+            const ctx = document.getElementById('total_time_loss')
+
+            var chart = new google.visualization.ComboChart(ctx);
+            chart.draw(data, options);
+            screenCap('total_time_loss')
+
+            function selectHandler() {
+                var selectedItem = chart.getSelection()[0];
+                if (selectedItem) {
+                    var newGraphDataIndex = selectedItem.column - 1;
+                    newGraf(newGraphDataIndex);
+                }
+            }
+
+            google.visualization.events.addListener(chart, 'select', selectHandler);
+
+
+            //funkce pro vytvoreni noveho grafu po kliknuti
+            function newGraf(dataIndex) {
+                console.log('data index: ' + dataIndex)
+
+                //deklarovani arraye s nazvy 
+                const newItemName = nameArray[dataIndex];
+                const newDataArray = dataArray[dataIndex];
+
+                var data = new google.visualization.DataTable();
+                data.addColumn('date', 'Period');
+                data.addColumn('number', newItemName);
+
+
+                //pridavani dat pro kazdou polozku na X ose 
+                xAxis.forEach((xTick, xIndex) => {
+
+                    if (newDataArray != "reminderFromDay") {
+
+                        if (parseInt(yData[newDataArray][xIndex]) < 0) {
+
+                            data.addRow([new Date(xTick.toString()), 0]);
+
+                        } else {
+                            data.addRow([new Date(xTick.toString()), (parseInt(yData[newDataArray][xIndex]) / maxValue) * 100]);
+                        }
+                    } else {
+
+                        let reminderFromDay = (reminderFromDayArray[xIndex] / maxValue) * 100
+
+                        if (reminderFromDay < 0) {
+
+                            data.addRow([new Date(xTick.toString()), 0]);
+                        } else {
+
+                            data.addRow([new Date(xTick.toString()), reminderFromDay]);
+                        }
+                    }
+
+                })
+
+                var optionsNewGraf = {
+                    title: newItemName + ' details (%)',
+                    seriesType: 'bars',
+                    legend: { position: 'top', alignment: 'start' },
+                    isStacked: true,
+                    explorer: {
+                        axis: 'vertical',
+                        keepInBounds: true,
+                        maxZoomIn: 4.0
+                    },
+                    hAxis: {
+                        ticks: (() => {
+                            ticksList = []
+                            xAxis.forEach(xTick => {
+                                ticksList.push({ v: new Date(xTick.split("-").join(",")), f: setDateFormat(xTick) });
+                            })
+                            return ticksList
+                        })(),
+                    }
+                };
+
+                document.getElementById('details').remove;
+
+                let detailsDiv = document.createElement("div");
+                detailsDiv.setAttribute("id", 'details');
+
+                document.querySelector('.charts-wrapper').appendChild(detailsDiv)
+
+
+                var chart = new google.visualization.ComboChart(document.getElementById('details'));
+                chart.draw(data, optionsNewGraf);
+                screencapDetails = true
+                screenCap('details')
+            }
+        }
+
+        // -------------------------- RQ chart --------------------------
+        function updateRQchart(xAxis, yData) {
+            var data = new google.visualization.DataTable();
+            data.addColumn('date', 'Period');
+            data.addColumn('number', 'Target RQ');
+            data.addColumn('number', 'RQ');
+            data.addColumn({ type: 'string', role: 'annotation' });
+            xAxis.forEach((xTick, xIndex) => {
+                data.addRow([new Date(xTick.toString()), yData['targetRQ'][xIndex], parseFloat(yData['RQ'][xIndex]), annotationPercentage(yData['RQ'][xIndex])]);
+            })
+
+            var options = {
+                title: 'RQ (%)',
+                seriesType: 'bars',
+                //graf zacina od 0, ne od 95 nebo podobne hodnoty, protoze by to pak rozbilo screenshot
+                //rect by mel ohromnou vysku i kdyz skritou, ale 
+                vAxis: { minValue: 0, maxValue: 10 },
+                legend: { position: 'top', alignment: 'start' },
+                series: {
+                    0: { type: 'line', lineDashStyle: [12, 12] },
+                },
+                colors: ['#00ff00', '#0000ff'],
+                trendlines: {
+                    1: {
+                        type: 'linear',
+                    }
+                },
+                hAxis: {
+                    ticks: (() => {
+                        ticksList = []
+                        xAxis.forEach(xTick => {
+                            ticksList.push({ v: new Date(xTick.split("-").join(",")), f: setDateFormat(xTick) });
+                        })
+                        return ticksList
+                    })(),
+                }
+            };
+
+            var chart = new google.visualization.ComboChart(document.getElementById('rq'));
+            chart.draw(data, options);
+
+            screenCap('rq')
+        }
+
+        // -------------------------- avgShift chart --------------------------
+        function updateAverageShiftOutputChart(xAxis, yData) {
+            var data = new google.visualization.DataTable();
+            data.addColumn('date', 'Period');
+            data.addColumn('number', 'Target PCS');
+            data.addColumn('number', 'PCS');
+            data.addColumn({ type: 'string', role: 'annotation' });
+            xAxis.forEach((xTick, xIndex) => {
+                data.addRow([new Date(xTick.toString()), yData['targetPCS'][xIndex], parseFloat(yData['PCS'][xIndex]), yData['PCS'][xIndex].toString()]);
+            })
+
+            var options = {
+                title: 'Average shift output (pcs)',
+                seriesType: 'bars',
+                legend: { position: 'top', alignment: 'start' },
+                series: {
+                    0: { type: 'line', lineDashStyle: [12, 12] },
+                },
+                trendlines: {
+                    1: {
+                        type: 'linear',
+                    }
+                },
+                colors: ['#00ff00', '#0000ff'],
+                hAxis: {
+                    ticks: (() => {
+                        ticksList = []
+                        xAxis.forEach(xTick => {
+                            ticksList.push({ v: new Date(xTick.split("-").join(",")), f: setDateFormat(xTick) });
+                        })
+                        return ticksList
+                    })(),
+                }
+            };
+
+            var chart = new google.visualization.ComboChart(document.getElementById('average_shift_output'));
+            chart.draw(data, options);
+
+            screenCap('average_shift_output')
+        }
+
+        // -------------------------- OEE chart --------------------------
+        function updateOEEchart(xAxis, yData) {
+            var data = new google.visualization.DataTable();
+            data.addColumn('date', 'Period');
+            data.addColumn('number', 'Target OEE');
+            data.addColumn('number', 'OEE');
+            data.addColumn({ type: 'string', role: 'annotation' });
+            xAxis.forEach((xTick, xIndex) => {
+                data.addRow([new Date(xTick.toString()), yData['targetOEE'][xIndex], parseFloat(yData['OEE'][xIndex]), annotationPercentage(yData['OEE'][xIndex])]);
+            })
+
+            var options = {
+                title: 'OEE (%)',
+                legend: { position: 'top', alignment: 'start' },
+                seriesType: 'bars',
+                series: {
+                    0: { type: 'line', lineDashStyle: [12, 12] },
+                },
+                colors: ['#00ff00', '#0000ff'],
+                trendlines: {
+                    1: {
+                        type: 'linear',
+                    }
+                },
+                hAxis: {
+                    ticks: (() => {
+                        ticksList = []
+                        xAxis.forEach(xTick => {
+                            ticksList.push({ v: new Date(xTick.split("-").join(",")), f: setDateFormat(xTick) });
+                        })
+                        return ticksList
+                    })(),
+                }
+            };
+
+            var chart = new google.visualization.ComboChart(document.getElementById('oee'));
+            chart.draw(data, options);
+            screenCap('oee')
+        }
+
+        // -------------------------- cycleTime chart --------------------------
+        function updateCycleTimeChart(xAxis, yData) {
+            var data = new google.visualization.DataTable();
+            data.addColumn('date', 'Period');
+            data.addColumn('number', 'Target C/T');
+            data.addColumn('number', 'C/T');
+            xAxis.forEach((xTick, xIndex) => {
+                data.addRow([new Date(xTick.toString()), yData['targetCT'][xIndex], parseFloat(yData['CT'][xIndex])]);
+            })
+
+            var options = {
+                title: 'C/T (s)',
+                seriesType: 'bars',
+                legend: { position: 'top', alignment: 'start' },
+                series: {
+                    0: { type: 'line', lineDashStyle: [12, 12] },
+                    1: { type: 'line' },
+                },
+                colors: ['#00ff00', '#0000ff'],
+                hAxis: {
+                    ticks: (() => {
+                        ticksList = []
+                        xAxis.forEach(xTick => {
+                            ticksList.push({ v: new Date(xTick.split("-").join(",")), f: setDateFormat(xTick) });
+                        })
+                        return ticksList
+                    })(),
+                }
+            };
+
+            var chart = new google.visualization.ComboChart(document.getElementById('cycle_time'));
+            chart.draw(data, options);
+            screenCap('cycle_time')
+        }
+
+        function submitForm() {
+            weeksRange = (new Date(document.querySelector('[name="date-to"]').value) - new Date(document.querySelector('[name="date-from"]').value)) / (1000 * 60 * 60 * 24) < 14 ? false : true;
+            sendData().then(resp => updateCharts(resp));
+        }
+
+        async function sendData() {
+            const url = window.location.href;
+            document.querySelector(".charts-wrapper").style.visibility = "hidden";
+            document.getElementById("loader").style.display = "block";
+
+            const resp = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    'date_to': document.querySelector('[name="date-to"]').value,
+                    'date_from': document.querySelector('[name="date-from"]').value,
+                    'shifts': shifts,
+                })
+            })
+
+            return resp.json();
+        }
+
+        //pomocne funkce
+        function setDateFormat(xTick) {
+            let wholeDate = new Date(xTick);
+            if (weeksRange) {
+                return wholeDate.getWeek().toString();
+            } else {
+                return wholeDate.toLocaleDateString("en-GB").slice(0, 6) + wholeDate.toLocaleDateString("en-GB").slice(8, 10);
+            }
+        }
+        function annotationPercentage(value) {
+            return `${(parseFloat(value)).toFixed(1)}%`
+        }
+
+
+        // powerpoint
+
+        // funkce volana pri vytvoreni kazdeho z grafu, vytvori obraz jako canvas,
+        // ten prevedu na base64 a ulozim jako neviditelny img (bohuzel nelze ulozit base64 hodnotu do nejake globalni promenne)
+        function screenCap(elementName) {
+            html2canvas(document.getElementById(elementName)).then(
+                function (canvas) {
+                    var data = canvas.toDataURL()
+                    var img = document.createElement('img');
+                    img.setAttribute('id', `${elementName}Img`);
+                    img.classList.add('imgForDown')
+                    img.src = data;
+                    document.getElementById("hiddenCanvases").append(img)
+                }
+            );
+        }
+
+        async function savePptx() {
+
+            let pres = new PptxGenJS();
+
+            //ziskani img data jako base64 hodnotu pro 5 vzdy viditelnych prvku
+            cycle_timeData = document.getElementById('cycle_timeImg').src
+            average_shift_outputData = document.getElementById('average_shift_outputImg').src
+            oeeData = document.getElementById('oeeImg').src
+            rqData = document.getElementById('rqImg').src
+            total_time_lossData = document.getElementById('total_time_lossImg').src
+
+            //vytvoreni jednotlivych slidu - deje se vzdy
+            let slideOne = pres.addSlide();
+            slideOne.addImage({ data: cycle_timeData, x: 0, y: '22.5%', w: "100%", h: '55%' })
+
+            let slideTwo = pres.addSlide();
+            slideTwo.addImage({ data: average_shift_outputData, x: 0, y: '22.5%', w: "100%", h: '55%' })
+
+            let slideThree = pres.addSlide();
+            slideThree.addImage({ data: oeeData, x: 0, y: '22.5%', w: "100%", h: '55%' })
+
+            let slideFour = pres.addSlide();
+            slideFour.addImage({ data: rqData, x: 0, y: '22.5%', w: "100%", h: '55%' })
+
+            let slideFive = pres.addSlide();
+            slideFive.addImage({ data: total_time_lossData, x: 0, y: '22.5%', w: "100%", h: '55%' })
+
+            //vytvoreni sesteho slidu pouze pokud je vyditelny
+            if (screencapDetails == true) {
+                detailsData = document.getElementById('detailsImg').src
+                let slideSix = pres.addSlide();
+                slideSix.addImage({ data: detailsData, x: 0, y: '22.5%', w: "100%", h: '55%' })
+            }
+
+            //vytvori prezentaci + vytvoreni a skladani nazvu
+            date_to = document.querySelector('[name="date-to"]').value.replaceAll("-", "")
+            date_from = document.querySelector('[name="date-from"]').value.replaceAll("-", "")
+            shiftsStr = ""
+            for (let i = 0; i < shifts.length; i++) {
+                shiftsStr += shifts[i]
+                console.log(shifts[i])
+            }
+            console.log(typeof (date_to))
+            nameForFile = `FP09-performance${date_to}/${date_from}${shiftsStr}.pptx`
+
+            pres.writeFile({ fileName: nameForFile });
+        }
+
+
+        // asynchronni volani funkce aby bylo mozne dat loading pokud stahuji ptx soubor - vetsinove se neprojevi, protoze je to prepripravene (spis kdyby bylo pomale pripojeni)
+        function callSavePptx() {
+            document.getElementById("loader").style.display = "block";
+            document.querySelector(".charts-wrapper").style.visibility = "hidden";
+
+            savePptx().then(
+                function (value) {
+                    document.getElementById("loader").style.display = "none";
+                    document.querySelector(".charts-wrapper").style.visibility = "visible";
+                }
+            )
+        }
+    </script>
+</body>
+
+</html>

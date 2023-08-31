@@ -1,0 +1,40 @@
+
+{% extends 'base.html' %}
+
+{% block head %}
+
+{% load carpool_tags %}
+
+<style>
+    .carpool-create-carloan-wrapper {
+        width: 80vw;
+        margin: 0 auto;
+    }
+</style>
+
+
+{% load static %}
+<link rel="stylesheet" type="text/css" href="{% static 'global.css' %}">
+
+{% endblock %}
+
+{% block body %}
+<div class="carpool-breadcrumb"><a href="{% url 'carpool_home' %}">Domů</a> > Vracím služební auto</div>
+<div class="carpool-create-carloan-wrapper">
+
+    <h2>Vypůjčená auta</h2>
+    {% for active_carloan in active_carloans %}
+    <p style="border: 1px solid lightgray; width: 50%; margin-bottom: 2em; padding: 1em 1em; background-color: rgba(128,128,128,0.05)">
+        <a href="{% url 'return_car_form' active_carloan.id %}">
+            Auto: {{active_carloan.reservation.reserved_car.car_license_plate|to_license_plate}}<br />
+            Datum: {{active_carloan.reservation.reservation_datetime_start|date:"Y-m-d h:i"}} - {{active_carloan.reservation.reservation_datetime_end|date:"Y-m-d h:i"}}
+        </a>
+    </p>
+    {% endfor %}
+
+    {% if not active_carloans %}
+    Žádné auto vypůjčené nemáte. <a href="{% url 'carpool_calendar' %}">Můžete zkusit vytvořit rezervaci</a>
+    {% endif %}
+
+</div>
+{% endblock %}

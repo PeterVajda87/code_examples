@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    {% load carpool_tags %}
+    <meta http-equiv='X-UA-Compatible' content='IE=Edge' />
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no' />
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Times New Roman', Times, serif;
+            color: rgb(0, 69, 126);
+            font-size: 3vh;
+        }
+    
+        img {
+            max-width: 100%;
+            height: -webkit-fill-available;
+            max-height: 15vh;
+        }
+    
+        form {
+            display: grid;
+            grid-template-columns: 1fr repeat(2, 3fr);
+            grid-auto-rows: 15vh;
+            grid-auto-flow: row;
+            align-items: center;
+            column-gap: 2vw;
+            row-gap: 5vh;
+            padding: 3vw 3vw;
+            font-size: 3vh;
+            overflow: auto;
+        }
+    
+        form>div {
+            width: 100%;
+        }
+    
+        input {
+            border: 0;
+            outline: 0;
+            border-bottom: 1px solid rgb(0, 69, 126);
+            padding: 1vh 1vw 0.5vh;
+            font-size: 3vh;
+            width: 100%;
+        }
+    
+        .hidden {
+            display: none !important;
+        }
+    
+        .autocomplete {
+            position: absolute;
+            padding: 0 2vw;
+            cursor: pointer;
+            background-color: white;
+        }
+    
+        .autocomplete>span:hover {
+            background-color: rgba(0, 0, 255, 0.15);
+        }
+    
+        .details {
+            grid-column: 1/4;
+            display: grid;
+            grid-template-columns: 2fr 2fr 1fr;
+            column-gap: 4vw;
+            grid-auto-flow: column;
+            padding: 0 4vw;
+        }
+    
+        .route-details {
+            grid-column: 1/2;
+        }
+    
+        .car-details {
+            grid-column: 2/3;
+        }
+    
+        .check-details {
+            grid-column: 3/4;
+            display: flex;
+            justify-content: space-between;
+        }
+    
+        .reserve-button {
+            background-color: #00457e;
+            color: white;
+            width: 50%;
+            margin: 2vh auto;
+            padding: 2vw;
+            text-transform: uppercase;
+            display: flex;
+            place-content: center;
+            cursor: pointer;
+        }
+
+        .delete-button {
+            background-color: rgb(255, 0, 0);
+            color: white;
+            width: 50%;
+            margin: 2vh auto;
+            padding: 2vw;
+            text-transform: uppercase;
+            display: flex;
+            place-content: center;
+            cursor: pointer;
+        }
+
+        .error-message {
+            position: absolute;
+            top: 5vh;
+            width: 100%;
+            display: flex;
+            flex-flow: row;
+            background-color: rgba(255,0,0,0.25);
+            height: 5vh;
+            justify-content: center;
+            align-items: center;
+        }
+    </style>
+
+</head>
+
+<body>
+    <div class="hidden">
+        <input type="hidden" readonly=True value="{{car.car_license_plate|to_license_plate}}">
+    </div>
+
+    <div class="error-message hidden" id="error-message">
+    </div>
+
+    <form method="POST" id="my_form" name="my_form">{% csrf_token %}
+        <div style="display: grid; grid-template-columns: 1fr 4.75fr; grid-column: 1/4; grid-row: 1/2; align-items: center;">
+            <div style="grid-column: 2/3; grid-row: 1/2;">
+                <input list="users" value="{{reservation.reservation_user.first_name}} {{reservation.reservation_user.last_name}}" name="user" onchange="enableSubmit()" required {% if not user.carprofile.is_superuser %} readonly {% endif %}>
+        
+                <datalist id="users">
+                    {% for user in users %}
+                    <option value="{{user.first_name}} {{user.last_name}}"></option>
+                    {% endfor %}
+                </datalist>
+            </div>
+            <div style="grid-column: 1/2; grid-row: 1/2">
+                <img src="/media/carpool/user-icon.png">
+            </div>
+        </div>
+        <div style="grid-column: 1/2"><img src="/media/carpool/start.png"></div>
+        <div style="grid-column: 2/3;">
+            <label>Začátek cesty</label>
+            <div><input type="text" name="starting-place" value="Knorr-Bremse, Svárovská 700" {% if user_can_edit %} readonly {% else %} disabled {% endif %} style="cursor:not-allowed"></div>
+        </div>
+
+        <div style="grid-column: 3/4;">
+            <label>Čas a datum odjezdu</label>
+            <div><input type="datetime-local" step="1800" id="start" name="starting-date" value="{{reservation.reservation_datetime_start|date:'Y-m-d'}}T{{reservation.reservation_datetime_start|date:'H:i'}}" onchange="checkCarAvailability()" {% if user_can_edit %} required {% else %} disabled {% endif %} ></div>
+
+        </div>
+
+        <div style="grid-column: 1/2"><img src="/media/carpool/finish_2.png"></div>
+        <div style="grid-column: 2/3;">
+            <label>Cíl cesty</label>
+            <div><input type="text" onchange="checkDistanceLimit()" name="destination-place" {% if user_can_edit %} required {% else %} disabled {% endif %} value="{{reservation.destination}}"></div>
+            <div class="autocomplete hidden" id="autocomplete-container">Suggestions</div>
+        </div>
+
+        <div style="grid-column: 3/4;">
+            <label>Čas a datum návratu</label>
+            <div><input type="datetime-local" name="destination-date" id="end" onchange="(() => checkDurationLimit().then(() => checkCarAvailability()))()" value="{{reservation.reservation_datetime_end|date:'Y-m-d'}}T{{reservation.reservation_datetime_end|date:'H:i'}}" {% if user_can_edit %} required {% else %} disabled {% endif %}></div>
+        </div>
+
+        <input type="hidden" name="distance" id="distance-hidden">
+        <input type="hidden" name="destination" id="destination-hidden">
+
+    </form>
+
+    <div class="details {% if not user_can_edit %} hidden {% endif %}" id="details-container">
+        <div class="route-details">Vzdálenost (tam): <span id="details-distance">{{reservation.kilometres}} km</span></div>
+        <div class="route-details">Trvání cesty (tam): <span id="details-duration"></span></div>
+        <div class="route-details">Zpátečná vzdálenost +10%: <span id="details-distance-total">{{reservation.kilometres|multiply:"2.2"|floatformat:"0"}} km</span></div>
+        <div class="car-details">Stav tachometru (km): <span id="details-car-mileage">{{reservation.reserved_car.car_mileage}}</span></div>
+        <div class="car-details">Servis (datum): <span
+                id="details-car-next-service-date" data-next-service="{{reservation.reserved_car.next_service_date|date:'Y-m-d'}}">{{reservation.reserved_car.next_service_date|date:"d. m. Y"}}</span></div>
+        <div class="car-details">Servis (km): <span id="details-car-next-service-km">{{reservation.reserved_car.next_service_kms}}</span>
+        </div>
+        <div class="check-details">Limit (km) <span id="details-distance-validation">✅</span></div>
+        <div class="check-details">Limit (datum) <span id="details-next-service-validation">✅</span></div>
+        <div class="check-details">Dostupnost auta <span id="details-car-available-validation">✅</span></div>
+    </div>
+
+    <div class="reserve-button hidden" id="reserve-button" onclick="submitForm()">Uložit</div>
+    {% if user_can_edit %}
+    <div class="delete-button" id="delete-button" onclick="(() => deleteReservation().then(() => window.close()))()">Zrušit rezervaci</div>
+    {% endif %}
+
+    <script>
+        const destinationPlaceInput = document.querySelector('input[name="destination-place"]');
+        const autocompleteContainer = document.getElementById('autocomplete-container');
+        const startDateTime = document.getElementById("start");
+        const endDateTime = document.getElementById("end");
+        const errorBar = document.getElementById("error-message");
+        const userInput = document.querySelector('input[name="user"]')
+        const passing = "✅";
+        const failing = "❌";
+        const carNextDistanceCheck = "{{reservation.reserved_car.next_service_kms}}";
+        const carTachometer = "{{reservation.reserved_car.car_mileage}}"
+        const carLicensePlate = "{{reservation.reserved_car.car_license_plate}}";
+        const reservationId = "{{reservation.id}}";
+        var startingPlace = new Map();
+        var destinationPlace = new Map();
+
+        window.addEventListener('pagehide', () => {
+            window.opener.location.reload();
+        })
+
+        startDateTime.addEventListener('change', () => {
+            document.getElementById('delete-button').classList.add('hidden');
+            if (endDateTime.value && endDateTime.value <= startDateTime.value) {
+                showErrorMessage('Datum konce nemůže být menší než datum začátku');
+            } else {
+                clearErrorMessage();
+            }
+        })
+
+        endDateTime.addEventListener('change', () => {
+            document.getElementById('delete-button').classList.add('hidden');
+            if (startDateTime.value && startDateTime.value >= endDateTime.value) {
+                showErrorMessage('Datum začátku nemůže být větší než datum konce');
+            } else {
+                clearErrorMessage();
+            }
+        })
+
+        startingPlace.set('lat', 50.77995)
+        startingPlace.set('lon', 15.01833)
+        startingPlace.set('position', { 'lat': 50.77995, 'lon': 15.01833 })
+
+        destinationPlaceInput.addEventListener('input', (e) => {
+            document.getElementById('delete-button').classList.add('hidden');
+            if (e.target.value.length > 3) {
+                getSuggestions(e.target.value).then((resp) => placeSuggestions(resp));
+            } else {
+                hideSuggestionsBox();
+            }
+        })
+
+        function useSuggestion(suggestion) {
+            document.getElementById('reserve-button').classList.add('hidden')
+            document.getElementById("details-distance-validation").classList.add('hidden'); 
+            document.getElementById("details-distance-validation").textContent = failing;
+            destinationPlaceInput.value = suggestion.textContent;
+            calcRoute(suggestion).then(resp => showRouteDetails(resp));
+            hideSuggestionsBox();
+        }
+
+        async function getSuggestions(string) {
+            const resp = await fetch(`https://api.tomtom.com/search/2/geocode/${destinationPlaceInput.value}.json?key=7wdZqbGcP24gLMfkmYCr8U5A7h5Id5eD&typeahead=true&language=cs-CZ&limit=5&lat=50.732&lon=14.984&resultSet=category`)
+            return resp.json();
+        }
+
+        function placeSuggestions(suggestions) {
+            let rect = destinationPlaceInput.getBoundingClientRect()
+            autocompleteContainer.classList.remove('hidden');
+            autocompleteContainer.innerHTML = '';
+            autocompleteContainer.style.top = `${rect.bottom}px`;
+            autocompleteContainer.style.left = `${rect.left}px`;
+            suggestions['results'].forEach(suggestion => {
+                let item = document.createElement('span');
+                item.style.display = 'block';
+                item.textContent = `${suggestion['address']['freeformAddress']}, ${suggestion['address']['country']}`
+                item.dataset.latitude = suggestion['position']['lat'];
+                item.dataset.longitude = suggestion['position']['lon'];
+                item.addEventListener('click', (event) => { useSuggestion(event.target) });
+                autocompleteContainer.append(item);
+            })
+        }
+
+        function hideSuggestionsBox() {
+            autocompleteContainer.classList.add('hidden');
+            autocompleteContainer.innerHTML = '';
+        }
+
+        async function calcRoute(suggestion) {
+            document.getElementById('destination-hidden').value = suggestion.textContent;
+            destinationPlace.set('lat', suggestion.dataset.latitude);
+            destinationPlace.set('lon', suggestion.dataset.longitude);
+            destinationPlace.set('position', { 'lat': suggestion.dataset.latitude, 'lon': suggestion.dataset.longitude })
+
+            const resp = await fetch(`https://api.tomtom.com/routing/1/calculateRoute/${startingPlace.get('lat')},${startingPlace.get('lon')}:${destinationPlace.get('lat')},${destinationPlace.get('lon')}/json?instructionsType=text&language=cs-CZ&key=7wdZqbGcP24gLMfkmYCr8U5A7h5Id5eD`)
+
+            return resp.json()
+        }
+
+        function showRouteDetails(data) {
+            document.getElementById('details-distance').textContent = `${parseInt(data['routes'][0]['summary']['lengthInMeters'] / 1000)} km`;
+            document.getElementById('details-distance').dataset.distance = parseInt(data['routes'][0]['summary']['lengthInMeters'] / 1000);
+            document.getElementById('details-distance-total').textContent = `${parseInt(data['routes'][0]['summary']['lengthInMeters'] / 1000 * 2 * 1.1)} km`;
+            document.getElementById('details-distance-total').dataset.distance = parseInt(data['routes'][0]['summary']['lengthInMeters'] / 1000 * 2 * 1.1);
+            document.getElementById('details-duration').textContent = `${parseInt(data['routes'][0]['summary']['travelTimeInSeconds'] / 60)} minut`;
+            document.getElementById('distance-hidden').value = parseInt(data['routes'][0]['summary']['lengthInMeters'] / 1000 * 2 * 1.1);
+            checkDistanceLimit();
+        }
+
+        function checkDistanceLimit() {
+            document.getElementById('delete-button').classList.add('hidden');
+            let endingValue = parseInt(carTachometer) + parseInt(document.getElementById('details-distance-total').dataset.distance);
+            if (endingValue > parseInt(carNextDistanceCheck)) {
+                document.getElementById("details-distance-validation").textContent = failing;
+            } else {
+                document.getElementById("details-distance-validation").textContent = passing;
+                enableSubmit();
+            }
+            document.getElementById('details-distance-validation').classList.remove('hidden');
+        }
+
+        async function checkDurationLimit() {
+            document.getElementById('delete-button').classList.add('hidden');
+            document.getElementById('reserve-button').classList.add('hidden');
+            if (Date.parse(document.getElementById("details-car-next-service-date").dataset.nextService) < Date.parse(document.getElementById('end').value)) {
+                document.getElementById('details-next-service-validation').textContent = failing;
+            } else {
+                document.getElementById('details-next-service-validation').textContent = passing;
+            }
+            enableSubmit();
+            document.getElementById('details-next-service-validation').classList.remove('hidden');
+            return true;
+        }
+
+        async function checkCarAvailability() {
+            document.getElementById('reserve-button').classList.add('hidden');
+            document.getElementById('delete-button').classList.add('hidden');
+            let availabilityData = await isCarAvailable(carLicensePlate, startDateTime, endDateTime, reservationId);
+
+            if (availabilityData.status == 'available') {
+                document.getElementById('details-car-available-validation').textContent = passing;
+                enableSubmit();
+            } else {
+                document.getElementById('details-car-available-validation').textContent = failing;
+            }
+            document.getElementById('details-car-available-validation').classList.remove('hidden');
+            return true;
+        }
+
+        async function isCarAvailable(licensePlate, startDateTime, endDateTime, reservationId) {
+            const resp = await fetch(url = "{% url 'validate_car_availability' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 'license-plate': licensePlate, 'start': startDateTime.value, 'end': endDateTime.value, 'reservation-id': reservationId })
+            })
+
+            return resp.json();
+        }
+
+        function enableSubmit() {
+            if (!(errorBar.classList.contains('hidden'))) {
+                document.getElementById('reserve-button').classList.add('hidden')
+                return false;
+            }
+            if (document.getElementById('details-distance-validation').textContent == passing && document.getElementById('details-next-service-validation').textContent == passing && document.getElementById('details-car-available-validation').textContent == passing) {
+                document.getElementById('reserve-button').classList.remove('hidden')
+            } else {
+                document.getElementById('reserve-button').classList.add('hidden')
+            }
+        }
+
+        async function postData() {
+            const resp = await fetch(url = '{% url "edit_reservation" "111" %}'.replace("111", reservationId), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    'starting-date': document.querySelector('input[name="starting-date"]').value,
+                    'destination-date': document.querySelector('input[name="destination-date"]').value,
+                    'destination': document.querySelector('input[name="destination-place"]').value,
+                    'kilometres': document.getElementById('details-distance').dataset.distance,
+                    'user': userInput.value,
+                })
+            })
+
+            return resp.json();
+        }
+
+        async function deleteReservation(e) {
+            document.getElementById("delete-button").textContent = "Probíhá rušení"
+            const resp = await fetch(url = '{% url "edit_reservation" "111" %}'.replace("111", reservationId), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    'Action': 'Smazat',
+                })
+            })
+
+            return resp.json();
+        }
+
+        function submitForm() {
+            postData().then(() => window.close())
+        }
+
+        function showErrorMessage(message) {
+            errorBar.classList.remove('hidden');
+            errorBar.textContent = message;
+        }
+
+        function clearErrorMessage() {
+            errorBar.classList.add('hidden');
+        }
+
+
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="/static/scripts/script.js"></script>
+    <link rel="stylesheet" href="/static/scripts/chart.css">
+    <title>Vývoj prostojů po kategoriích, stanicích, důvodech</title>
+    
+
+    <style>
+
+        @font-face {
+            font-family: 'Noto Sans';
+            src: url('/media/fonts/NotoSans-Regular.ttf');
+        }
+        
+        input {
+            font-family: 'Noto Sans';
+        }
+
+        svg {
+            max-width: 33vw;
+            min-width: 33vw;
+            max-height: 50vh;
+            min-height: 50%;
+            box-sizing: border-box;
+            display: block;
+        }
+
+        #header {
+            font-family: 'Noto Sans';
+            height: 4vh;
+            display: flex;
+            flex-flow: row;
+            width: 100vw;
+            justify-content: center;
+            align-items: center;
+            column-gap: 10vw;
+            
+
+        }
+        #chart-area {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            height: 96vh;
+            width: 100vw;
+        }
+
+        #chart-area svg:nth-child(1) {
+            background-color: rgba(0,0,0,0.05);
+        }
+
+        #chart-area svg:nth-child(4) {
+            background-color: rgba(0,0,0,0.05);
+        }
+
+        #chart-area svg:nth-child(3) {
+            background-color: rgba(0,0,0,0.05);
+        }
+
+        #chart-area svg:nth-child(6) {
+            background-color: rgba(0,0,0,0.05);
+        }
+
+
+
+    </style>
+</head>
+<body>
+    <div id="header">
+        <div>
+            <label>Od</label>
+            <input type="date" name="date-from" onchange="dateChanged()">
+        </div>
+
+        <label style="display: flex; flex-flow: row; justify-content: center; column-gap: 0.5vw">
+            <input type="checkbox" checked onchange="setShifts(this)" value="R">R
+            <input type="checkbox" checked onchange="setShifts(this)" value="O">O
+            <input type="checkbox" checked onchange="setShifts(this)" value="N">N
+        </label>
+
+        <div>
+            <label>Do</label>
+            <input type="date" name="date-to" onchange="dateChanged()">
+        </div>
+    </div>
+
+    <div id="chart-area">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" data-purpose="categories"></svg>
+
+        <svg xmlns="http://www.w3.org/2000/svg" data-purpose="stations"></svg>
+
+        <svg xmlns="http://www.w3.org/2000/svg" data-purpose="downtimes"></svg>
+
+        <svg xmlns="http://www.w3.org/2000/svg" data-purpose="trend-categories"></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" data-purpose="trend-stations"></svg>
+
+        <svg xmlns="http://www.w3.org/2000/svg" data-purpose="trend-downtimes"></svg>
+        
+    </div>
+
+<script>
+
+    var chartDataCategories = {{data_categories|safe}};
+    var chartDataStations = {{data_stations|safe}};
+    var chartDataDowntimes = {{data_downtimes|safe}};
+    var chartDataTrendCategories = {{data_trend_categories|safe}};
+    var chartDataTrendStations = {{data_trend_stations|safe}};
+    var chartDataTrendDowntimes = {{data_trend_downtimes|safe}};
+    var shifts = ['R', 'O', 'N'];
+    var dateTo = new Date();
+    var dateFrom = new Date();
+    dateFrom.setDate(dateTo.getDate() - 10);
+    document.querySelector('[name="date-from"]').value = dateFrom.toISOString().slice(0, 10)
+    document.querySelector('[name="date-to"]').value = dateTo.toISOString().slice(0, 10)
+
+    const svgContainerCategories = document.querySelector('svg[data-purpose="categories"]');
+    const svgContainerStations = document.querySelector('svg[data-purpose="stations"]');
+    const svgContainerDowntimes = document.querySelector('svg[data-purpose="downtimes"]');
+    const svgContainerTrendCategories = document.querySelector('svg[data-purpose="trend-categories"]');
+    const svgContainerTrendStations = document.querySelector('svg[data-purpose="trend-stations"]');
+    const svgContainerTrendDowntimes = document.querySelector('svg[data-purpose="trend-downtimes"]');
+
+    let chartCategories = new Chart(svgContainerCategories, chartDataCategories);
+    let chartStations = new Chart(svgContainerStations, chartDataStations);
+    let chartDowntimes = new Chart(svgContainerDowntimes, chartDataDowntimes);
+    let chartTrendCategories = new Chart(svgContainerTrendCategories, chartDataTrendCategories);
+    let chartTrendStations = new Chart(svgContainerTrendStations, chartDataTrendStations);
+    let chartTrendDowntimes = new Chart(svgContainerTrendDowntimes, chartDataTrendDowntimes);
+
+    var selectedCategory = chartDataCategories.data.labels[0];
+    var selectedStation = chartDataStations.data.labels[0];
+    var selectedDowntime = chartDataDowntimes.data.labels[0];
+
+    highlightFirstColumns();
+
+    function highlightFirstColumns() {
+        let svgs = document.querySelectorAll('svg:not([data-purpose*="trend"])');
+        svgs.forEach(svg => {
+            try {
+                let firstRect = svg.querySelector('rect');
+                firstRect.setAttribute('fill-opacity', '1');
+            } catch {
+                console.log('data missing');
+            }
+        })
+    }
+
+    function setShifts(input) {
+        if (input.checked == true) {
+            shifts.push(input.value);
+        } else {
+            shifts = shifts.filter(item => item !== input.value);
+        }
+        dateChanged();
+    }
+
+    async function dateChanged() {
+        dateFrom = new Date(document.querySelector('[name="date-from"]').value)
+        dateTo = new Date(document.querySelector('[name="date-to"]').value)
+
+        svgContainerTrendDowntimes.innerHTML = '';
+        svgContainerTrendStations.innerHTML = '';
+        svgContainerTrendCategories.innerHTML = '';
+        svgContainerDowntimes.innerHTML = '';
+        svgContainerStations.innerHTML = '';
+        svgContainerCategories.innerHTML = '';
+
+        try {
+            let newChartDataCategories = await getChartData('categories');
+            selectedCategory = newChartDataCategories.data.labels[0];
+            let chartDataCategories = new Chart(svgContainerCategories, newChartDataCategories);
+        } catch {
+            console.log('categories')
+        }
+
+        try {
+            let newChartDataStations = await getChartData('stations');
+            selectedStation = newChartDataStations.data.labels[0];
+            let chartDataStations = new Chart(svgContainerStations, newChartDataStations);
+        } catch {
+            console.log('stations')
+        }
+    
+        try {
+            let newChartDataDowntimes = await getChartData('downtimes');
+            selectedDowntime = newChartDataDowntimes.data.labels[0];
+            let chartDataDowntimes = new Chart(svgContainerDowntimes, newChartDataDowntimes)
+        } catch {
+            console.log('downtimes')
+        }
+    
+        try {
+            let newChartDataTrendCategories = await getChartData('category trend');
+            let newChartDataTrendStations = await getChartData('station trend');
+            let newChartDataTrendDowntimes = await getChartData('downtime trend');
+    
+            let chartTrendCategories = new Chart(svgContainerTrendCategories, newChartDataTrendCategories);
+    
+            let chartTrendStations = new Chart(svgContainerTrendStations, newChartDataTrendStations);
+    
+            let chartTrendDowntimes = new Chart(svgContainerTrendDowntimes, newChartDataTrendDowntimes);
+        } catch {
+            console.log('trt')
+        }
+        highlightFirstColumns();
+    }
+
+    async function updateDashboard(column) {
+        if (column.dataset.tableColumn == 'downtime') {
+            svgContainerTrendDowntimes.innerHTML = '';
+
+            selectedDowntime = column.dataset.label;
+
+            let newChartDataTrendDowntimes = await getChartData('downtime trend'); 
+
+            let chartTrendDowntimes = new Chart(svgContainerTrendDowntimes, newChartDataTrendDowntimes);
+        }
+
+        if (column.dataset.tableColumn == 'station') {
+            svgContainerTrendDowntimes.innerHTML = '';
+            svgContainerTrendStations.innerHTML = '';
+            svgContainerDowntimes.innerHTML = '';
+
+            selectedStation = column.dataset.label;
+            let newChartDataDowntimes = await getChartData('downtimes');
+
+            selectedDowntime = newChartDataDowntimes.data.labels[0];
+
+            let newChartDataTrendStations = await getChartData('station trend');
+            let newChartDataTrendDowntimes = await getChartData('downtime trend');
+
+            let chartTrendStations = new Chart(svgContainerTrendStations, newChartDataTrendStations);
+            let chartDataDowntimes = new Chart(svgContainerDowntimes, newChartDataDowntimes);
+            let chartTrendDowntimes = new Chart(svgContainerTrendDowntimes, newChartDataTrendDowntimes);
+
+            document.querySelector('svg[data-purpose="downtimes"]').querySelector('rect').setAttribute('fill-opacity', '1');
+        }
+
+        if (column.dataset.tableColumn == 'category') {
+            svgContainerTrendCategories.innerHTML = '';
+            svgContainerTrendDowntimes.innerHTML = '';
+            svgContainerTrendStations.innerHTML = '';
+            svgContainerDowntimes.innerHTML = '';
+            svgContainerStations.innerHTML = '';
+
+            selectedCategory = column.dataset.label;
+            let newChartDataStations = await getChartData('stations');
+
+            selectedStation = newChartDataStations.data.labels[0];
+            let newChartDataDowntimes = await getChartData('downtimes');
+
+            selectedDowntime = newChartDataDowntimes.data.labels[0];
+
+            let newChartDataTrendStations = await getChartData('station trend');
+            let newChartDataTrendDowntimes = await getChartData('downtime trend');
+            let newChartDataTrendCategories = await getChartData('category trend');
+
+            let chartTrendStations = new Chart(svgContainerTrendStations, newChartDataTrendStations);
+            let chartTrendDowntimes = new Chart(svgContainerTrendDowntimes, newChartDataTrendDowntimes);
+            let chartTrendCategories = new Chart(svgContainerTrendCategories, newChartDataTrendCategories);
+            let chartDataDowntimes = new Chart(svgContainerDowntimes, newChartDataDowntimes);
+            let chartDataStations = new Chart(svgContainerStations, newChartDataStations);
+
+            document.querySelector('svg[data-purpose="downtimes"]').querySelector('rect').setAttribute('fill-opacity', '1');
+            document.querySelector('svg[data-purpose="stations"]').querySelector('rect').setAttribute('fill-opacity', '1');
+        }
+    }
+
+    async function getChartData(chartToUpdate) {
+        const url = "{% url 'ps_fp09:svg_charts_fetch' %}";
+        const resp = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                'date_to': dateTo.toUTCString(),
+                'date_from': dateFrom.toUTCString(),
+                'chart_to_update': chartToUpdate,
+                'downtime': selectedDowntime,
+                'station': selectedStation,
+                'category': selectedCategory,
+                'shifts': shifts,
+            })
+        })
+        
+        return resp.json();
+    } 
+
+</script>
+</body>
+</html>

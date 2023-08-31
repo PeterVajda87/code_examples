@@ -1,0 +1,152 @@
+
+{% extends 'base.html' %}
+
+{% block head %}
+
+{% load carpool_tags %}
+
+{% load static %}
+<link rel="stylesheet" type="text/css" href="{% static 'global.css' %}">
+<script src="{% static 'all.js' %}"></script>
+
+{% endblock %}
+
+{% block body %}
+
+<div class="carpool-breadcrumb"><a href="{% url 'carpool_home' %}">Domů</a> > Evidence oprav</div>
+
+<div class="carpool-show-repairs-wrapper">
+    
+    <div style="margin-bottom: 1em">
+        <a href="{% url 'create_repair_general' %}">
+            <div style="margin-bottom: 1em">
+            + vytvořit opravu z opotřebení
+            </div>
+        </a>
+
+    {% if accidents %}
+        <div>
+            + vytvořit opravu z nehody:
+            <ul style="list-style-type: none">
+                {% for accident in accidents %}
+                    {% if not accident.repair_created %}
+                        <a href="{% url 'create_repair_from_accident' accident.id %}"><li style="margin-left: 2em">{{accident.accident_car.car_license_plate|to_license_plate}} ({{accident.accident_person.first_name}} {{accident.accident_person.last_name}}, {{accident.accident_date|date:"c"}})</li></a>
+                    {% endif %}
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+
+    </div>
+
+{% if repairs %}
+
+<table class="carpool-repairs">
+    <thead>
+        <tr>
+            <th>
+                SPZ
+            </th>
+            <th>
+                Důvod opravy
+            </th>
+            <th>
+                Začátek opravy
+            </th>
+            <th>
+                Konec opravy
+            </th>
+            <th>
+                Náklady
+            </th>
+            <th>
+                SRM
+            </th>
+            <th>
+                Potvrzeno
+            </th>
+            <th>
+                Schváleno
+            </th>
+            <th>
+                Uzavřeno
+            </th>
+        </tr>
+    </thead>
+
+    <tbody>
+        {% for repair in repairs %}
+        {% if repair.caused_by_wear %}<tr onclick="window.location='{% url "edit_repair" repair.id %}'">
+        {% else %}<tr onclick="window.location='{% url "edit_repair_from_accident" repair.id %}'">{% endif %}
+            <td>
+                {{repair.car.car_license_plate|to_license_plate}}
+            </td>
+            <td title='{{repair.repair_reason}}'>
+                {% if repair.caused_by_accident %}Nehoda{% else %}Opotřebení{% endif %}
+            </td>
+            <td>
+                {{repair.repair_start|date:"SHORT_DATE_FORMAT"}}
+            </td>
+            {% if not repair.repair_end %}
+                <td title="Odhad" style="font-style: italic;">
+                    {{repair.end_estimate|date:"SHORT_DATE_FORMAT"}}
+                </td>
+                {% else %}
+                <td>
+                    {{repair.repair_end|date:"SHORT_DATE_FORMAT"}}
+                </td>
+            {% endif %}
+
+            {% if not repair.repair_cost %}
+            <td title="Odhad" style="font-style: italic;">
+                {{repair.cost_estimate|floatformat:"0"}}
+            </td>
+            {% else %}
+            <td>
+                {{repair.repair_cost}}
+            </td>
+        {% endif %}
+
+        <td>
+            {{repair.srm_number}}
+        </td>
+
+        <td>
+            {% if not repair.confirmed %}
+            <i class="far fa-square"></i>
+            {% else %}
+            <i class="far fa-check-square"></i>
+            {% endif %}
+        </td>
+
+        <td>
+            {% if not repair.approved %}
+            <i class="far fa-square"></i>
+            {% else %}
+            <i class="far fa-check-square"></i>
+            {% endif %}
+        </td>
+
+        <td>
+            {% if not repair.closed %}
+            <i class="far fa-square"></i>
+            {% else %}
+            <i class="far fa-check-square"></i>
+            {% endif %}
+        </td>
+
+
+
+        </tr>
+        {% endfor %}
+
+    </tbody>
+
+</table>
+
+{% endif %}
+    
+
+
+
+{% endblock %}

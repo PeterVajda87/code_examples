@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+
+    <style>
+
+        a {
+            text-decoration: none;
+            /* text-transform: uppercase; */
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            display: flex;
+            flex-flow: row;
+            flex-wrap: wrap;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        div {
+            max-width: 25vw;
+            display: flex;
+            flex-flow: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        div:hover {
+            background-color: rgba(0,0,0,0.25);
+        }
+
+        img {
+            max-width: 90%;
+            /* padding: 1rem; */
+            cursor: pointer;
+        }
+
+        a {
+            font-size: 1.25rem;
+        }
+
+    </style>
+</head>
+<body>
+    <div>
+        <img src="/media/fp09/operator_screen_new.PNG" onclick="location.href='{% url "fp09:operator_screen_new" %}'">
+        <a href="{% url 'fp09:operator_screen_new' %}">Obrazovka operátora (nová)</a>
+    </div>
+    
+    <div>
+        <img src="/media/fp09/operator_screen.PNG" onclick="location.href='{% url "fp09:operator_screen" %}'">
+        <a href="{% url 'fp09:operator_screen' %}">Obrazovka operátora (stará)</a>
+    </div>
+    
+    <div>
+        <img src="/media/fp09/edit_database.PNG" onclick="location.href='{% url "fp09:edit_database" %}'">
+        <a href="{% url 'fp09:edit_database' %}">Databáze záznamů seřizovače</a>
+    </div>
+    
+    <div>
+        <img src="/media/fp09/downtime_trends_comparison.PNG" onclick="location.href='{% url "fp09:fp09_downtime_trends" %}'">
+        <a href="{% url 'fp09:fp09_downtime_trends' %}">Trendy prostojů dle seřizovače (porovnání období)</a>
+    </div>
+    
+    <div>
+        <img src="/media/fp09/pareto_screen_fp09.PNG" onclick="location.href='{% url "fp09:pareto_screen_fp09" %}'">
+        <a href="{% url 'fp09:pareto_screen_fp09' %}">Pareto prostojů dle záznamů seřizovače</a>
+    </div>
+    
+    <div>
+        <img src="/media/fp09/performance_screen_fp09.PNG" onclick="location.href='{% url "fp09:performance_screen_fp09" %}'">
+        <a href="{% url 'fp09:performance_screen_fp09' %}">Vizualizace výroby a ztrát</a>
+    </div>
+    
+    <div>
+        <img src="/media/fp09/fp09_stats.PNG" onclick="location.href='{% url "fp09_stats" %}'">
+        <a href="{% url 'fp09_stats' %}">Statistika alarmů (stará)</a>
+    </div>
+    
+    <div>
+        <img src="/media/fp09/alarm_stats.PNG" onclick="location.href='{% url "fp09:alarm_stats" %}'">
+        <a href="{% url 'fp09:alarm_stats' %}">Statistika alarmů (nová)</a>
+    </div>
+
+    <div>
+        <img src="/media/fp09/svg_charts.PNG" onclick="location.href='{% url "ps_fp09:svg_charts" %}'">
+        <a href="{% url 'ps_fp09:svg_charts' %}">Vývoj prostojů</a>
+    </div>
+
+    <div>
+        <img src="/media/fp09/performance_report.PNG" onclick="location.href='{% url "fp09:performance_report" %}'">
+        <a href="{% url 'fp09:performance_report' %}">Report výkonu</a>
+    </div>
+
+    <div>
+        <img src="/media/fp09/service_book.PNG" onclick="location.href='{% url "fp09:service_book" %}'">
+        <a href="{% url 'fp09:service_book' %}">Kniha zásahů</a>
+    </div>
+
+    <div>
+        <img src="/media/fp09/station_downtimes_detail.PNG" onclick="location.href='{% url "fp09:station_downtimes_detail" %}'">
+        <a href="{% url 'fp09:station_downtimes_detail' %}">Detail stanice</a>
+    </div>
+</body>
+</html>

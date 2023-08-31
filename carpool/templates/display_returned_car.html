@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>zobrazeni pro vracena auta</title>
+
+    <style>
+        .carpool-breadcrumb {
+            margin: 1em;
+            margin-left: 10%;
+        }
+    
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, Helvetica, sans-serif;
+            color: #00457e;
+        }
+    
+        label {
+            font-size: 1.6vh;
+        }
+     
+        .carpool-create-carloan-wrapper {
+            width: 80vw;
+            height: 90vh;
+            max-height: 90vh;
+            margin: 0 auto;
+            font-family: Arial, Helvetica, sans-serif;
+            /* overflow: auto; */
+        }
+    
+        .carpool-carloan-form {
+            border: 1px solid #00457e;
+            padding: 1rem 1rem;
+        }
+    
+        #form-header {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            height: 12.5vh;
+            column-gap: 3rem;
+            font-weight: bold;
+            font-family: Arial, Helvetica, sans-serif;
+            pointer-events:none;
+        }
+    
+        #form-header>div {
+            display: flex;
+            flex-flow: column;
+            min-height: 0;
+            justify-content: space-between;
+            padding-bottom: 2rem;
+            width: 100%;
+        }
+    
+        label,
+        input {
+            display: block;
+        }
+    
+        input {
+            padding: 0.25rem 0.5rem;
+            border: 0;
+            border-bottom: 1px solid #00457e;
+            outline: 0;
+            font-size: 2.2vh;
+        }
+    
+        label {
+            text-transform: uppercase;
+        }
+    
+        textarea {
+            resize: none;
+            padding: 0.25rem 0.25rem;
+            font-size: 2vh;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+    
+        input[type="file"] {
+            border: none;
+        }
+    
+        .notes {
+            width: 100%;
+        }
+    
+        .notes textarea {
+            padding: 0.5rem 0.5rem;
+            font-size: 2vh;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+    
+        .footer {
+            display: flex;
+            flex-flow: row;
+            gap: 2rem;
+        }
+    
+        .footer>div {
+            width: 50%;
+        }
+    
+        .submit input {
+            background-color: #00457e;
+            color: white;
+            font-weight: bold;
+            font-family: Arial, Helvetica, sans-serif;
+            padding: 1.5rem 1.5rem;
+            cursor: pointer;
+            width: 100%;
+            font-size: 2vh;
+            border-radius: 0rem 0rem 2rem 2rem;
+        }
+    
+        .label-container {
+            display: flex;
+            flex-flow: row;
+            min-height: 0;
+            align-items: center;
+            max-height: 50%;
+        }
+    
+        .label-container label {
+            padding-left: 1rem;
+        }
+    
+        .label-container img {
+            height: -webkit-fill-available;
+        }
+    
+        .delete-button {
+            background-color: red;
+            color: white;
+            z-index: 20;
+            border-radius: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transform: translate(-50%, -50%);
+            cursor: pointer;
+            font-size: 1.25rem;
+            position: relative;
+        }
+        
+        #form-body {
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-auto-flow: row;
+            align-items: center;
+            justify-content: left;
+            color: #00457e;
+            font-size: 2.3vh;
+            font-weight: 600;
+            column-gap: 2rem;
+            row-gap: 1rem;
+            pointer-events:none;
+        }
+        
+        .checklist-row-full-width {
+            display: grid;
+            flex-flow: row;
+            grid-template-columns: 3fr 4.75fr 1fr;
+            background-color: aliceblue;
+            padding: 1rem 1rem;
+        }
+    
+        .checklist-row-full-width input {
+            width: 100%;
+        }
+    
+        .green-background {
+            background-color: mediumspringgreen;
+            border: 2px solid mediumspringgreen;
+        }
+    
+        .red-background {
+            background-color: tomato;
+            border: 2px solid tomato;
+        }
+    
+        .white-color {
+            color: white;
+        }
+    
+        .button {
+            display: flex;
+            flex-flow: row;
+            column-gap: 2rem;
+            align-items: center;
+            height: 10vh;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 2.5vh;
+            user-select: none;
+            grid-row: 3/4;
+        }
+        
+        .button:hover {
+            border: 2px solid #00457e;
+            font-size: 3vh;
+        }
+    
+        .button > img {
+            height: -webkit-fill-available;
+            max-height: 5vh;
+        }
+    
+        .new-refueling {
+            display: flex;
+            flex-flow: row;
+            align-items: center;
+            column-gap: 2rem;
+            margin: 0 auto;
+            grid-row: 4/5;
+        } 
+    
+        .new-refueling > div {
+            display: flex;
+            flex-flow: column;
+        }
+    
+        .new-refueling > div > input[type="number"] {
+            width: 100%;
+            text-align: center;
+        }
+    
+        .refueling-icons,
+        .damage-icons {
+            max-height: 5vh;
+            grid-row: 2/3;
+            grid-column: 1/2;
+        }
+    
+        .damage-icons {
+            grid-column: 2/3;
+        }
+    
+        .refueling-icons > img,
+        .damage-icons > img {
+            max-height: 5vh;
+        }
+    
+        .new-damage {
+            display: flex;
+            flex-flow: row;
+            align-items: center;
+            margin: 0 auto;
+            grid-row: 4/5;
+            grid-column: 2/3;
+        }
+    
+        .form-label {
+            display: flex;
+            column-gap: 1rem;
+            flex-flow: row;
+            text-transform: none;
+            align-items: center;
+        }
+    
+        .car-damage-map {
+            grid-column: 1/3;
+            grid-row: 5/6;
+            justify-self: center;
+            display: grid;
+            grid-template-columns: 2fr 2fr;
+            width: 100%;
+        }
+    
+        @media print {
+            @page {
+                size: landscape;
+            }
+    
+            img {
+                display: none;
+            }
+    
+            textarea {
+                border: 1px solid black;
+            }
+    
+            .carpool-create-carloan-wrapper {
+                width: 277mm;
+                height: 185mm;
+            }
+    
+            .submit {
+                visibility: hidden;
+            }
+    
+            .carpool-breadcrumb {
+                display: none;
+            }
+    
+        }
+    </style>
+
+</head>
+<body>
+    <div class="carpool-breadcrumb"><a href="{% url 'carpool_home' %}">Domů</a> > Vracím služební auto</div>
+<div class="carpool-create-carloan-wrapper">
+
+<div id="form-header">
+    <div>
+        <div class="label-container">
+            <img src="/media/carpool/license-plate.png" /><label>SPZ</label>
+        </div>
+        <input type="text" size="8" id="licence-plate" readonly
+           
+            value="1525asdf">
+    </div>
+
+    <div>
+        <div class="label-container">
+            <img src="/media/carpool/start.png" /><label>Začátek zápůjčky</label>
+        </div>
+        <input type="datetime-local" id="carloan-start" name="carloan-start"
+            value='12-06-2023' readonly>
+    </div>
+
+    <div>
+        <div class="label-container">
+            <img src="/media/carpool/finish_2.png" /><label>Konec zápůjčky</label>
+        </div>
+        <input type="datetime-local" id="carloan-end" name="carloan-end"
+            value='14-06-2023' readonly>
+    </div>
+
+    <div>
+        <div class="label-container">
+            <img src="/media/carpool/shell-pin.png" /><label>Shell PIN</label>
+        </div>
+        <input type="text" readonly value="7888">
+    </div>
+
+    <div>
+        <div class="label-container">
+            <img src="/media/carpool/car.png" /><label>Čas odevzdání vozidla</label>
+        </div>
+        <input type="datetime-local" name="carloan-return-time" id="return-time" readonly>
+    </div>
+</div>
+
+<div id="form-body">
+    <div class="checklist-row-full-width" data-purpose="tank-status">
+        <div class="checklist-label">Stav nádrže</div>
+    
+        <div class="checklist-range-slider">
+            <input type="range" min="0" max="100" value="50" class="slider" id="fuel-tank-slider" list="tickmarks"
+                step="10">
+            <datalist id="tickmarks">
+                <option value="0"></option>
+                <option value="10"></option>
+                <option value="20"></option>
+                <option value="30"></option>
+                <option value="40"></option>
+                <option value="50"></option>
+                <option value="60"></option>
+                <option value="70"></option>
+                <option value="80"></option>
+                <option value="90"></option>
+                <option value="100"></option>
+            </datalist>
+        </div>
+    </div>
+
+    <div class="checklist-row-full-width" data-purpose="tachometer-value">
+        <div class="checklist-label">Stav tachometru</div>
+        <input type="number" min="0" id="tachometer-value" name="tachometer-value" value="{{carloan_object.reservation.reserved_car.car_mileage}}" style="text-align: center">
+    </div>
+
+    <div class="refueling-icons hidden" id="refueling-icons-container"></div>
+    <div class="damage-icons hidden" id="damage-icons-container"></div>
+
+   
+
+    <div class="new-refueling hidden" id="refueling-form">
+        <div>
+            <label>Datum</label><input type="date" id="refueling-date" name="refueling-date">
+        </div>
+        <div>
+            <label>Množství (l)</label><input type="number" id="refueling-volume" name="refueling-volume" value="0">
+        </div>
+        <div>
+            <label>Cena (celková)</label><input type="number" id="refueling-price" name="refueling-price" value="0">
+        </div>
+        
+    </div>
+
+    <div class="car-damage-map hidden" id="car-damage-map">
+        <div>
+            <div>Zaznačte poškozené části vozidla</div>
+            <svg width="100%" height="417px" viewBox="0 0 800 566" xmlns="http://www.w3.org/2000/svg">
+                <image href="/media/carpool/car-exploded.png" height="554" width="800" />
+                <rect x="8" y="166" width="104" height="224" id="front-bumer" name="Přední nárazník" fill="transparent" />
+                <rect x="689" y="162" width="101" height="227" id="rear-bumper" fill="transparent" name="Zadní nárazník" />
+                <polygon points="141,189 131,243 130,312 140,366 280,366 271,326 271,225, 279,188 209,188" id="engine-cover"
+                    fill="transparent" name="Kapota" />
+                <polygon points="278,189 346,208 343,238 343,326 347,349 280,365 271,330 272,228" id="windshield"
+                    fill="transparent" name="Ćelní sklo" />
+                <polygon points="348,207 345,231 343,322 349,348 514,348 509,318 508,240 515,210" id="roof" name="Střecha" fill="transparent" />
+                <polygon points="514,207 616,189 664,189 672,233 671,324 665,367 612,369 518,351 509,324 510,239" id="trunk"
+                    fill="transparent" name="Kufr" />
+                <polygon points="521,216 517,236 517,307 520,339 572,351 597,350 599,205 570,202" id="rear-window"
+                    fill="transparent" name="Zadní sklo" />]
+                <circle cx="217" cy="491" r="36" id="tyre-front-left" fill="transparent" name="Kolo PL" />
+                <circle cx="549" cy="491" r="36" id="tyre-rear-left" fill="transparent" name="Kolo ZL" />
+                <circle cx="217" cy="66" r="36" id="tyre-front-right" fill="transparent" name="Kolo PP" />
+                <circle cx="549" cy="66" r="36" id="tyre-rear-right" fill="transparent" name="Kolo ZP" />
+                <polygon
+                    points="169,500 137,499 129,481 121,475 121,453 147,451 156,430 139,430 173,417 228,411 279,405 273,450 283,498 264,498 249,457 215,447 190,455 178,471"
+                    id="front-left" fill="transparent" name="Předek vlevo" />
+                <polygon
+                    points="137,56 131,74 117,82 122,100 149,102 154,120 137,124 183,140 254,146 281,151 273,116 277,72 281,55 262,55 254,86 229,104 196,103 173,76 168,56"
+                    id="front-right" fill="transparent" name="Předek vpravo" />
+                <polygon points="290,408 360,365 410,361 406,409" id="window-front-left" fill="transparent" name="Sklo u řidiče"/>
+                <polygon points="290,147 408,149 412,193 359,190" id="window-front-right" fill="transparent" name="Sklo u spolujezdce"/>
+                <polygon points="425,361 421,408 521,406 507,384 482,364" id="window-rear-left" fill="transparent" name="Sklo za řidičem"/>
+                <polygon points="423,149 425,193 488,192 521,147" id="window-rear-right" fill="transparent" name="Sklo za spolujezdcem" />
+                <polygon points="504,190 544,147 601,147 550,177" id="window-trunk-right" fill="transparent" name="Sklo zadní vpravo" />
+                <polygon points="504,366 544,407 601,408 550,381" id="window-trunk-left" fill="transparent" name="Sklo zadní vlevo" />
+                <polygon points="280,407 416,405 410,446 418,498 283,498 271,452" id="door-front-left" fill="transparent" name="Dveře levé přední" />
+                <polygon points="416,407 531,408 543,428 527,444 507,456 490,499 419,496 414,450" id="door-rear-left"
+                    fill="transparent" name="Dveře levé zadní" />
+                <polygon points="281,57 418,58 413,103 417,149 278,148 273,105" id="door-front-right" name="Dveře pravé přední" fill="transparent" />
+                <polygon points="418,54 415,99 417,146 533,147 542,122 515,101 491,56" id="door-rear-right" name="Dveře pravé zadní" fill="transparent" />
+                <polygon
+                    points="494,496 510,456 540,435 534,408 643,410 663,419 663,428 650,427 646,449 664,455 667,477 658,483 649,498 598,499 582,468 562,452 532,452 515,471 506,499"
+                    id="trunk-left" fill="transparent" name="Zadek vlevo" />
+                <polygon
+                    points="536,147 647,144 662,125 650,127 645,102 667,98 664,75 656,73 650,57 596,57 583,90 554,107 528,101 501,56 491,57 503,86 524,110 544,122"
+                    id="trunk-right" fill="transparent" name="Zadek vpravo" />
+            </svg>
+        </div>
+        <div id="damage-description-box" style="padding-left: 1rem";>
+            <div style="margin-bottom: 1rem">Popis poškození</div>
+            <form id="damage-description-form" style="display: flex; flex-flow: column">
+            </form>
+        </div>
+     </div>
+</div>
+
+<div class="footer">
+    <div class="notes">
+        <textarea style="display: block; width: 100%" id="notes" placeholder="Místo pro vaše poznámky při vrácení auta"></textarea>
+    </div>
+</div>
+
+<div class="gallery hidden" id="gallery-container"></div>
+
+
+</div>
+</body>
+</html>

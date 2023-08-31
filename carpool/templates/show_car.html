@@ -1,0 +1,245 @@
+{% extends 'base.html' %}
+
+{% block head %}
+
+{% load extras %}
+
+{% load static %} 
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+    <style>
+        .fill {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden
+        }
+        .fill img {
+            flex-shrink: 0;
+            min-width: 100%;
+            min-height: 100%;
+            object-fit: cover;
+        }
+    </style>
+  </head>
+    <body>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
+        <div class="container">
+                <div class="row">
+                    <div class="col fill">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/2/2a/2012_Dacia_Dokker.JPG" class="rounded" alt="car" style="width: 50%; height: 50%;">
+                    </div>
+                    <div class="col">
+                        <table class="table table-striped">
+                            <tbody>
+                                <tr>
+                                    <th>Výrobce</th>
+                                    <th>{{car_information.0.16}}</th>
+                                </tr>
+                                <tr>
+                                    <th>Model</th>
+                                    <th>{{car_information.0.17}}</th>
+                                </tr>
+                                <tr>
+                                    <th>Oddělení</th>
+                                    <th>{{car_information.0.6}}</th>
+                                </tr>
+                                <tr>
+                                    <th>Stav km (rok)</th>
+                                    <th>{{car_information.0.12}}/{{car_information.0.18}}</th>
+                                </tr>
+                                <tr>
+                                    <th>Servis (km)</th>
+                                    <th>{{car_information.0.27}}</th>
+                                </tr>
+                                <tr>
+                                    <th>Servis (datum)</th>
+                                    <th>{{car_information.0.26}}</th>
+                                </tr>
+                                <tr>
+                                    <th>Technická kontrola</th>
+                                    <th>{{car_information.0.28}}</th>
+                                </tr>
+                                <tr>
+                                    <th>Teoretická spotřeba</th>
+                                    <th>{{car_information.0.23}} l/100km</th>
+                                </tr>
+                                <tr>
+                                    <th>Reálná spotřeba</th>
+                                    <th>{{car_information.0.24}} l/100km</th>
+                                </tr>
+                                <tr>
+                                    <th>SPZ</th>
+                                    <th>{{car_information.0.4}}</th>
+                                </tr>
+                                <tr>
+                                    <th>Kontaktní číslo</th>
+                                    <th>{{car_information.0.7}}</th>
+                                </tr>
+                        
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col">
+                        <h3 style="text-align: center;">Historie vozidla</h3>
+                        <div class="car-history" id="car-history"></div>
+                    </div>
+                    <div class="col">
+                        <h3 style="text-align: center;">Stav vozidla</h3>
+                        <div class="car-pickup" id="car-pickup"></div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col">
+                        <h3 style="text-align: center;">Nehody</h3>
+                        <div class="car-accident" id="car-accident"></div>
+                    </div>
+                    <div class="col">
+                        <h3 style="text-align: center;">Historie jízd</h3>
+                        <div class="car-reservation" id="car-reservation"></div>
+                    </div>
+                </div>
+        </div>
+  </body>
+  <script>
+        let historyRecords = {{car_information.0.21|safe}};
+        let keysHistory =  Object.keys(historyRecords);
+        for (var i = 0; i < keysHistory.length; i++) {
+            var key = keysHistory[i];
+            var history_div = document.createElement('div');
+            history_div.innerHTML = '<h4>' + key + '</h4>' + '<p>' + historyRecords[key] + '</p>';
+            document.getElementById('car-history').appendChild(history_div);
+        }
+        let pickupRecords = {{car_pickupreport|safe}};
+        let keysPickup = Object.keys(pickupRecords);
+        var elementsPosition = [4,2,5,6,7];
+        for (var i = 0; i < keysPickup.length; i++) {
+            if (i == 0){
+                var table = document.createElement('table');
+                table.classList.add('table');
+                var thead = document.createElement('thead');
+                var tbody = document.createElement('tbody');
+
+                table.appendChild(thead);
+                table.appendChild(tbody);
+
+                document.getElementById('car-pickup').appendChild(table);
+                var elementsInHeading = ['Datum', 'Zaznamenal', 'Stav nádrže', 'Čistota exteriéru', 'Čistota interiéru'];
+                let row1 = document.createElement('tr');
+                for (var j = 0; j < elementsInHeading.length; j++){
+                    var heading = document.createElement('th');
+                    heading.innerHTML = elementsInHeading[j];
+                    row1.appendChild(heading);
+                }
+                thead.appendChild(row1);
+                
+            }
+            var key = keysPickup[i];
+            var row = document.createElement('tr');
+            for (var k = 0; k < elementsPosition.length; k++) {
+                data = document.createElement('td');
+                position = elementsPosition[k];
+                data.innerHTML = pickupRecords[key][position];
+                row.appendChild(data);
+            }
+            tbody.appendChild(row);
+        
+        }
+        let accidentRecords = {{car_accident|safe}}
+        let keysAccident =  Object.keys(accidentRecords);
+        var elementsPosition = [2, 3, 5, 0]
+        for (var i = 0; i < keysAccident.length; i++){
+            var key = keysAccident[i];
+            var accident_div = document.createElement('div');
+            accident_div.innerHTML = '<h4>' + accidentRecords[key][1] + '</h4>'
+            document.getElementById('car-accident').appendChild(accident_div);
+            var table = document.createElement('table');
+            table.classList.add('table');
+            var thead = document.createElement('thead');
+            var tbody = document.createElement('tbody');
+
+            table.appendChild(thead);
+            table.appendChild(tbody);
+
+            document.getElementById('car-accident').appendChild(table);
+            var elementsInHeading = ['ID uživatele', 'ID cesty', 'Role uživatele', 'Popis'];
+                let row1 = document.createElement('tr');
+                for (var j = 0; j < elementsInHeading.length; j++){
+                    var heading = document.createElement('th');
+                    heading.innerHTML = elementsInHeading[j];
+                    row1.appendChild(heading);
+                }
+                thead.appendChild(row1);
+            var row = document.createElement('tr');
+            for (var k = 0; k < elementsPosition.length; k++) {
+                data = document.createElement('td');
+                position = elementsPosition[k];
+                data.innerHTML = accidentRecords[key][position];
+                row.appendChild(data);
+            }
+            tbody.appendChild(row);
+            var urls = accidentRecords[key][4];
+            var keysUrls = Object.keys(urls);
+            for (var k = 0; k < keysUrls.length; k++){
+                var accident_img = document.createElement('img');
+                key = keysUrls[k]
+                url = urls[key]
+                var adress = `${url}`
+                var accidentImgUrl = "{% static 'carpool/' %}"
+                accident_img.src = accidentImgUrl + adress
+                var img = document.getElementById('car-accident');
+                img.appendChild(accident_img)
+
+            }
+        }
+
+        let reservationRecords = {{car_reservation|safe}};
+        let keysReservation = Object.keys(reservationRecords);
+        var elementsPosition = [1,2,4,10,11];
+        for (var i = 0; i < keysReservation.length; i++) {
+            if (i == 0){
+                var table = document.createElement('table');
+                table.classList.add('table');
+                var thead = document.createElement('thead');
+                var tbody = document.createElement('tbody');
+
+                table.appendChild(thead);
+                table.appendChild(tbody);
+
+                document.getElementById('car-reservation').appendChild(table);
+                var elementsInHeading = ['Začátek Rezervace', 'Konec rezervace', 'ID uživatele', 'Destinace', 'Počet ujetých kilometrů'];
+                let row1 = document.createElement('tr');
+                for (var j = 0; j < elementsInHeading.length; j++){
+                    var heading = document.createElement('th');
+                    heading.innerHTML = elementsInHeading[j];
+                    row1.appendChild(heading);
+                }
+                thead.appendChild(row1);
+                
+            }
+            var key = keysReservation[i];
+            var row = document.createElement('tr');
+            for (var k = 0; k < elementsPosition.length; k++) {
+                data = document.createElement('td');
+                position = elementsPosition[k];
+                data.innerHTML = reservationRecords[key][position];
+                row.appendChild(data);
+            }
+            tbody.appendChild(row);
+        
+        }
+
+  </script>
+</html>
+
+{% endblock %}

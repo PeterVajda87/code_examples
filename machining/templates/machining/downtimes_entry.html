@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+    {% load static %}
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zadávání prostojů</title>
+    <script src="{% static 'xlsx.full.min.js' %}"></script>
+    <style>
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Noto Sans';
+        }
+
+         @font-face {
+            font-family: 'Noto Sans';
+            src: url('/media/fonts/NotoSans-Light.ttf');
+        }
+
+        @font-face {
+            font-family: 'Noto Sans';
+            font-weight: bold;
+            src: url('/media/fonts/NotoSans-Regular.ttf');
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .wrapper {
+            width: clamp(600px, 80vw, 1600px);
+            margin: 0 auto;
+            height: 100vh;
+            display: flex;
+            flex-flow: column;
+            border: 1px solid rgba(255, 0, 0, 0.2);
+            border-radius: 5px;
+            padding: 0 2vw;
+        }
+
+        .header {
+            height: 20%;
+            display: flex;
+            flex-flow: column;
+            justify-content: space-around;
+        }
+
+        .machine {
+            height: 40%;
+            display: flex;
+            flex-flow: row;
+            justify-content: center;
+            align-items: center;
+            column-gap: 10%;
+            font-size: clamp(18px, 3.3vh, 36px);
+        }
+        
+        .machine select {
+            font-size: clamp(18px, 3.3vh, 36px);
+        }
+
+        .downtime-form {
+            display: flex;
+            flex-flow: row;
+            flex-wrap: nowrap;
+            justify-content: space-between;
+            background-color: rgba(255, 0, 0, 0.2);
+            height: 50%;
+            align-items: center;
+            border-radius: 5px;
+            padding: 0 1vw;
+        }
+
+        .downtime-form > div {
+            display: flex;
+            flex-flow: column;
+            width: 20%;
+        }
+
+        .downtime-form input {
+            padding: 0.25vh 0.25vw;
+        }
+
+        .add-button,
+        .change-buttons {
+            width: 5% !important;
+            justify-content: space-evenly;
+            height: 100%;
+        }
+
+        button {
+            cursor: pointer;
+            height: 100%;
+            outline: none;
+            background-color: white;
+            border: 1px solid red;
+        }
+
+        .table-of-downtimes {
+            height: 100%;
+            overflow: auto;
+        }
+
+        .edited-row {
+            background-color: lightgray;
+        }
+
+        .table-of-downtimes__header {
+            display: flex;
+            flex-flow: row;
+            justify-content: space-between;
+        }
+
+        .table-of-downtimes__header > div {
+            display: flex;
+            width: 100%;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .downtime-row {
+            cursor: pointer;
+            display: flex;
+            flex-flow: row;
+            flex-wrap: nowrap;
+        }
+
+        .downtime-row > div {
+            display: flex;
+            width: 100%;
+            justify-content: flex-start;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <div class="header">
+
+            <div class="machine">
+                <label for="machine-select">Linka/Stroj</label>
+                <select name="machine" id="machine-select" onchange="resetForm()">
+                    {% for machine in machines %}
+                    <option value="{{machine}}" {% if machine == selected_machine %} selected {% endif %}>{{machine}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="downtime-form">
+                <div class="downtime-category">
+                    <label for="downtime-category">Kategorie prostoje</label>
+                    <input list="downtime-categories" name="category-select" id="downtime-category" onchange="populateListOfDowntimes(this)">
+                </div>
+                <div class="downtime-reason">
+                    <label for="downtime-reason">Důvod prostoje</label>
+                    <input list="downtime-reasons" name="downtime-reason" id="downtime-reason">
+                </div>
+                <div class="downtime-beginning">
+                    <label for="downtime-beginning">Začátek</label>
+                    <input type="datetime-local" name="downtime-beginning" id="downtime-beginning" onchange="validateInput()">
+                </div>
+                <div class="downtime-end">
+                    <label for="downtime-end">Konec</label>
+                    <input type="datetime-local" name="downtime-end" id="downtime-end" onchange="validateInput()">
+                </div>
+                <div class="add-button hidden">
+                    <button onclick="submitDowntime(this)">[přidat]</button>
+                </div>
+                <div class="change-buttons hidden">
+                    <button id="delete-downtime-button" onclick="deleteDowntime(this)">[smazat]</button>
+                    <button id="edit-downtime-button" onclick="submitDowntime(this)">[upravit]</button>
+                </div>
+            </div>
+
+        </div>
+
+        <div id="table-of-downtimes" class="table-of-downtimes">
+            <div class="table-of-downtimes__header" id="table-of-downtimes__header">
+                <div>Začátek</div>
+                <div>Konec</div>
+                <div>Trvání</div>
+                <div>Kategorie prostoje</div>
+                <div>Důvod prostoje</div>
+            </div>
+
+            <div class="table-of-downtimes__body" id="table-of-downtimes__body">
+            </div>
+        </div>
+    </div>
+
+    <datalist id="downtime-categories">
+    </datalist>
+
+    <datalist id="downtime-reasons">
+    </datalist>
+
+</body>
+
+<script>
+    const addButton = document.querySelector('div.add-button');
+    const editButton = document.querySelector('diov.edit-button')
+    window.addEventListener('DOMContentLoaded', (event) => {
+        setInputValues({});
+        populateListOfCategories();
+        populatePastDowntimes();
+    });
+
+    async function resetForm() {
+        window.location.href = `/machining/${document.querySelector('select').value}`
+    }
+
+    async function populatePastDowntimes() {
+        document.querySelector('.add-button').classList.add('hidden');
+        document.querySelector('.change-buttons').classList.add('hidden');
+        document.getElementById('table-of-downtimes__body').innerHTML = '';
+        const downtimes = await fetch(window.location.href, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 'machine': document.getElementById('machine-select').value, 'subject': 'get_past_records' })
+        })
+
+        let downtimesForList = await downtimes.json();
+
+        downtimesForList['downtimes'].forEach(downtime => {
+            addDowntimeToTable(downtime['id'], downtime);
+        })
+    }
+
+    async function populateListOfCategories() {
+        const categories = await fetch(window.location.href, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({'machine': document.getElementById('machine-select').value, 'subject': 'get_categories'})
+        })
+
+        let categoriesForList = await categories.json();
+
+        categoriesForList['categories'].forEach(category => {
+            let option = new Option(category, category);
+            document.getElementById('downtime-categories').append(option);
+        })
+    }
+
+    async function populateListOfDowntimes(categorySelect) {
+        let category = categorySelect.value;
+
+        const downtimes = await fetch(window.location.href, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 'machine': document.getElementById('machine-select').value, 'subject': 'get_downtimes', 'category': category })
+        })
+
+        let downtimesForList = await downtimes.json();
+
+        document.getElementById('downtime-reasons').innerHTML = "";
+
+        downtimesForList['downtimes'].forEach(downtime => {
+            let option = new Option(downtime, downtime);
+            document.getElementById('downtime-reasons').append(option);
+        })
+    }
+
+    async function deleteDowntime(button) {
+        if (window.confirm("Skutečně si přejete smazat záznam?")) {
+            const confirmation = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 'machine': document.getElementById('machine-select').value, 'subject': 'delete_downtime', 'id': button.dataset.id })
+            })
+    
+            let response = await confirmation.json();
+
+            document.querySelector(`div.downtime-row[data-id="${button.dataset.id}"]`).remove();
+            setInputValues({});
+
+        } else {
+            return false
+        }
+    }
+
+    async function submitDowntime(button) {
+        let downtimeCategory = document.getElementById('downtime-category').value;
+        let downtime = document.getElementById('downtime-reason').value;
+        let machine = document.querySelector('select').value;
+        let downtimeBeginning = document.getElementById('downtime-beginning').value;
+        let downtimeEnd = document.getElementById('downtime-end').value;
+
+        downtimeData = {
+            'downtimeCategory': downtimeCategory,
+            'downtime': downtime,
+            'machine': machine,
+            'downtimeBeginning': downtimeBeginning,
+            'downtimeEnd': downtimeEnd,
+            'downtimeId': button.dataset.id,
+        }
+
+        sendDowntime(downtimeData)
+        .then(downtimeId => addDowntimeToTable(downtimeId, downtimeData))
+        .then(() => setInputValues({}));
+
+        document.querySelector('div[class*="edited-row"]')?.classList.remove('edited-row');
+        document.querySelector('div[class*="change-buttons"]').classList.add('hidden');
+        document.querySelector('div[class*="add-button"]').classList.add('hidden');
+
+        delete button.dataset.id;
+
+    }
+
+    function setInputValues({category = "", downtime = "", beginning = "", end = ""} = {}) {
+        document.getElementById('downtime-category').value = category;
+        document.getElementById('downtime-reason').value = downtime;
+        document.getElementById('downtime-beginning').value = beginning;
+        document.getElementById('downtime-end').value = end;
+    }
+
+    async function sendDowntime(downtimeData) {
+        const resp = await fetch(window.location.href, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 'machine': document.getElementById('machine-select').value, 'subject': 'store_downtime', ...downtimeData })
+        })
+
+        let response = await resp.json();
+        return response['id'];
+    }
+
+
+    async function addDowntimeToTable(downtimeId, downtimeData) {
+        let existingRow = document.querySelector(`div[data-id="${downtimeId}"]`);
+        let downtimeRow = existingRow ? existingRow : document.createElement('div');
+        downtimeRow.classList.add('downtime-row');
+        downtimeRow.dataset.id = downtimeId;
+        downtimeRow.innerHTML = '';
+
+        let downtimeBeginning = document.createElement('div');
+        downtimeBeginning.textContent = new Date(downtimeData['downtimeBeginning']).toLocaleString().slice(0, -3);
+        downtimeBeginning.dataset.datetimeValue = isoToGMT(new Date(downtimeData['downtimeBeginning']));
+        downtimeBeginning.classList.add('downtime-beginning-cell');
+        downtimeRow.append(downtimeBeginning);
+
+        let downtimeEnd = document.createElement('div');
+        downtimeEnd.textContent = new Date(downtimeData['downtimeEnd']).toLocaleString().slice(0, -3);
+        downtimeEnd.dataset.datetimeValue = isoToGMT(new Date(downtimeData['downtimeEnd']));
+        downtimeEnd.classList.add('downtime-end-cell')
+        downtimeRow.append(downtimeEnd);
+
+        let downtimeDuration = document.createElement('div');
+        downtimeDuration.textContent = `${Math.abs(new Date(downtimeData['downtimeEnd']) - new Date(downtimeData['downtimeBeginning'])) / 60_000} min`;
+        downtimeDuration.classList.add('downtime-duration-cell')
+        downtimeRow.append(downtimeDuration);
+
+        let downtimeCategory = document.createElement('div')
+        downtimeCategory.textContent = downtimeData['downtimeCategory'];
+        downtimeCategory.classList.add('downtime-category-cell')
+        downtimeRow.append(downtimeCategory);
+
+        let downtime = document.createElement('div')
+        downtime.textContent = downtimeData['downtime'];
+        downtime.classList.add('downtime-reason-cell')
+        downtimeRow.append(downtime);
+
+        if (!existingRow) {
+            document.getElementById('table-of-downtimes__body').prepend(downtimeRow);
+        }
+
+        downtimeRow.querySelectorAll('div').forEach(cell => {
+            cell.addEventListener('click', (e) => {
+                toggletRowEdit(e)
+            })
+        })
+    }
+
+    function toggletRowEdit(e) {
+        let downtimeRow = e.target.parentElement;
+        let editMode = downtimeRow.classList.contains('edited-row');
+        if (!editMode) {
+            document.querySelectorAll('div.downtime-row').forEach(row => row.classList.remove('edited-row'))
+            downtimeRow.classList.add('edited-row');
+            setInputValues({
+                'category': downtimeRow.querySelector('.downtime-category-cell').textContent,
+                'downtime': downtimeRow.querySelector('.downtime-reason-cell').textContent,
+                'beginning': downtimeRow.querySelector('.downtime-beginning-cell').dataset.datetimeValue.slice(0, -1),
+                'end': downtimeRow.querySelector('.downtime-end-cell').dataset.datetimeValue.slice(0, -1)
+    
+            })
+            document.querySelector('.change-buttons').classList.remove('hidden');
+            document.getElementById('edit-downtime-button').dataset.id = downtimeRow.dataset.id;
+            document.getElementById('delete-downtime-button').dataset.id = downtimeRow.dataset.id;
+
+        } else {
+            downtimeRow.classList.remove('edited-row');
+            setInputValues({});
+            document.querySelector('.change-buttons').classList.add('hidden')
+        }
+    }
+
+    function validateInput() {
+        if (new Date(document.getElementById('downtime-end').value) > new Date(document.getElementById('downtime-beginning').value)) {
+            if (document.querySelector('div[class*="edited-row"]')) {
+                document.querySelector('.add-button').classList.add('hidden');
+                document.querySelector('.change-buttons').classList.remove('hidden');
+            } else {
+                document.querySelector('.add-button').classList.remove('hidden');
+                document.querySelector('.change-buttons').classList.add('hidden');
+            }
+        }
+        
+        else {
+            document.querySelector('.change-buttons').classList.add('hidden');
+            document.querySelector('.add-button').classList.add('hidden');
+            return false
+        }
+    }
+    
+    function isoToGMT(dtObject) {
+        return new Date(dtObject.getTime() - (dtObject.getTimezoneOffset() * 60000)).toISOString();
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (String.fromCharCode(e.keyCode).toLowerCase() === 'x' && e.ctrlKey) {
+            let aoa = [];
+            let tableHeaders = document.getElementById('table-of-downtimes__header').querySelectorAll('div');
+            let tableRows = document.getElementById('table-of-downtimes__body').querySelectorAll('div[class*="downtime-row"]');
+            let tableHeadersData = Array.from(tableHeaders).map(headerDiv => headerDiv.textContent)
+            aoa.push(tableHeadersData);
+        
+            tableRows.forEach(row => {
+                let rowData = [];
+                row.querySelectorAll('div').forEach(cell => {
+                    rowData.push(cell.textContent);
+                });
+                aoa.push(rowData);
+            })
+
+            let worksheet = XLSX.utils.aoa_to_sheet(aoa);
+            let workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Data")
+            XLSX.writeFile(workbook, `Prostoje_${document.querySelector('select').value}.xlsb`);
+        }
+    })
+
+</script>
+</html>

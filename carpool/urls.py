@@ -1,0 +1,36 @@
+from django.urls import path
+from .views import display_loaned_car, display_returned_car, carpool_home, carpool_calendar, add_car, show_cars, create_reservation, validate_car_availability, edit_reservation, create_carloan, create_carloan_form, return_car, return_car_form,  show_accident_reports, get_car_data, create_repair_from_accident, show_repairs, create_repair_general, edit_repair, edit_repair_from_accident, get_carloans, find_carloan_by_qrcode, show_car, user_admin, delete_car, edit_car, get_car_history, show_accident_reports_v2, referent, galerie_vypujcek
+
+urlpatterns = [
+    path('carpool', carpool_home, name='carpool_home'),
+    path('carpool/calendar', carpool_calendar, name='carpool_calendar'),
+    path('carpool/add_car', add_car, name='add_car'),
+    path('carpool/show_cars', show_cars, name='show_cars'),
+    path('carpool/get_car_data', get_car_data, name='get_car_data'),
+    path('carpool/get_carloans', get_carloans, name='get_carloans'),
+    path('carpool/create_carloan', create_carloan, name='create_carloan'),
+    path('carpool/show_accident_reports', show_accident_reports, name='show_accident_reports'),
+    path('carpool/create_carloan/<int:reservation_id>', create_carloan_form, name='create_carloan_form'),
+    path('carpool/return_car', return_car, name='return_car'),
+    path('carpool/return_car_form/<int:carloan_id>', return_car_form, name='return_car_form'),
+    path('carpool/validate_car_availability', validate_car_availability, name='validate_car_availability'),
+    path('carpool/calendar/<int:year>/<int:week>', carpool_calendar, name='carpool_calendar'),
+    path('carpool/calendar/create_reservation/<int:year>/<int:week>/<int:car>/<int:day>/<int:start>', create_reservation, name='create_reservation'),
+    path('carpool/calendar/edit_reservation/<str:reservation_id>', edit_reservation, name='edit_reservation'),
+    path('carpool/create_repair', create_repair_general, name='create_repair_general'),
+    path('carpool/create_repair_from_accident/<int:accident_report_id>', create_repair_from_accident, name='create_repair_from_accident'),
+    path('carpool/show_repairs', show_repairs, name='show_repairs'),
+    path('carpool/edit_repair/<int:repair_id>', edit_repair, name='edit_repair'),
+    path('carpool/edit_repair_from_accident/<int:repair_id>', edit_repair_from_accident, name='edit_repair_from_accident'),
+    path('carpool/find_carloan_by_qrcode', find_carloan_by_qrcode, name='find_carloan_by_qrcode'),
+    path('carpool/show_car', show_car, name="show_car"),
+    path('carpool/user_admin', user_admin, name='user_admin'),
+    path('carpool/delete_car', delete_car, name="delete_car"),
+    path('carpool/edit_car', edit_car, name="edit_car"),
+    path('carpool/get_car_history', get_car_history, name="get_car_history"),
+    path('carpool/referent', referent, name="referent"),
+    path('carpool/show_accident_reports_v2', show_accident_reports_v2, name='show_accident_reports_v2'),
+    path('carpool/galerie_vypujcek', galerie_vypujcek, name='galerie_vypujcek'),
+    path('carpool/display_returned_car', display_returned_car, name='display_returned_car'),
+    path('carpool/display_loaned_car', display_loaned_car, name='display_loaned_car')
+]

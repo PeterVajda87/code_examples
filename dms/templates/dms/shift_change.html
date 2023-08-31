@@ -1,0 +1,1078 @@
+{% extends 'dms/base.html' %}
+
+{% block style %}
+
+<style>
+    .wrapper {
+        width: 100%;
+        height: 100%;
+        background-color: aliceblue;
+        display: flex;
+        flex-flow: column;
+        flex-wrap: nowrap;
+    }
+
+    .shift-change-info {
+        display: flex;
+        flex-flow: column;
+        justify-content: space-between;
+        width: 28% !important;
+        height: 97.5%;
+    }
+    
+    .shift-change-info > div {
+        height: 100%;
+    }
+
+    .hidden {
+        display: none !important;
+    }
+
+    .deviated {
+        background-color: red !important;
+        color: white;
+        cursor: pointer;
+    }
+
+    .achieved {
+        background-color: yellowgreen !important;
+        color: white;
+    }
+
+    .kpi-timeline {
+        height: 30%;
+        border: 1px dashed gray;
+        margin: 0 0.5rem;
+        display: flex;
+        flex-flow: column;
+        flex-wrap: nowrap;
+    }
+
+    .reduced-72 {
+        width: 72% !important;
+    }
+
+    .full-height {
+        height: 100% !important;
+    }
+
+    .multitable {
+        height: 100%;
+        display: flex;
+        flex-flow: row;
+        flex-wrap: nowrap;
+        width: 100%;
+    }
+
+    .kpi-timeline-row {
+        height: calc(1 / 6 * 100%);
+        display: flex;
+        flex-flow: row;
+        flex-wrap: nowrap;
+    }
+
+    .tall-row {
+        height: calc(1 / 5 * 95%) !important;
+    }
+
+    .kpi-timeline-row-header {
+        display: flex;
+        padding: 0 0.25rem;
+        justify-content: flex-start;
+        align-items: center;
+        width: 10%;
+        background-color: rgba(0,0,0,0.75);
+        color: white;
+    }
+
+    .kpi-timeline-header > div {
+        display: flex;
+        flex-flow: row;
+        justify-content: center;
+        align-items: center;
+        background-color: rgba(0,0,0,0.75);
+        color: white;
+    }
+
+    .kpi-timeline-row-cell {
+        border-left: 1px dashed gray;
+    }
+
+    .kpi-timeline-row:not(:last-of-type) {
+        border-bottom: 1px dashed gray;
+    }
+
+    .kpi-cards {
+        height: 40%;
+        display: flex;
+        flex-flow: row;
+        column-gap: 2vw;
+        padding: 0.5rem;
+    }
+
+    .kpi-card {
+        width: calc(calc(100vw - 8vw - 8rem) / 5); 
+        flex-shrink: 1;
+        flex-grow: 1;
+        flex-basis: 0;
+        border-radius: 5px;
+        display: flex;
+        flex-flow: column;
+        flex-wrap: nowrap;
+    }
+
+    .green {
+        background-color: yellowgreen;
+    }
+
+    .red {
+        background-color: red;
+    }
+
+    .gray {
+        background-color: lightgray;
+    }
+
+    .kpi-title {
+        font-size: 4vh;
+        text-align: center;
+        color: white;
+        user-select: none;
+    }
+
+    .kpi-title::first-letter {
+        font-size: 10vh;
+        font-weight: bold;
+    }
+
+    .timeline-slot {
+        border-left: 1px dashed gray;
+        background-color: white;
+        display: flex;
+        justify-content: center;
+        align-items: stretch;
+    }
+
+    .line-result,
+    .line-label {
+        flex-grow: 1;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .line-label {
+        justify-content: flex-start;
+    }
+
+    .kpi-actual-value {
+        flex-grow: 1;
+        flex-shrink: 1;
+        flex-basis: 0px;
+        font-size: 12vh;
+        display: flex;
+        font-weight: bold;
+        color: white;
+        justify-content: center;
+        user-select: none;
+    }
+
+    .kpi-target-value {
+        font-size: 4vh;
+        display: flex;
+        justify-content: center;
+        align-items: flex-end;
+        user-select: none;
+    }
+
+    .other-info {
+        height: 30%;
+        margin: 0.5rem;
+        display: flex;
+        flex-flow: row;
+        column-gap: 2vw;
+    }
+
+    .other-info > div {
+        flex-grow: 1;
+        flex-shrink: 1;
+        flex-basis: 0px;
+        background-color: white;
+    }
+
+    h4 {
+        user-select: none;
+        text-align: left;
+        padding-left: 5%;
+    }
+
+    textarea {
+        font-size: 1.125rem;
+        width: 80%; 
+        height: 80%; 
+        margin: 0 10%;
+        padding: 2%;
+        resize: none;
+    }
+
+    .modal {
+        display: none; /* Hidden by default */
+        position: fixed; /* Stay in place */
+        z-index: 1; /* Sit on top */
+        left: 0;
+        top: 0;
+        width: 100%; /* Full width */
+        height: 100%; /* Full height */
+    }
+
+    .modal select {
+        margin-left: 1vw;
+    }
+
+    .modal-content {
+        background-color: #fefefe;
+        margin: 20% auto; /* 15% from the top and centered */
+        padding: 5vh 2.5vw;
+        border: 1px solid #888;
+        width: 50vw; /* Could be more or less, depending on screen size */
+        height: fit-content;
+        position: relative;
+    }
+
+    .close {
+        color: #aaa;
+        font-size: 32px;
+        font-weight: bold;
+        position: absolute;
+        right: 1.25vw;
+        top: 0;
+    }
+
+    .close:hover,
+    .close:focus {
+        color: black;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+
+</style>
+{% endblock %}
+
+{% block page_title %} > Předání směny 
+<select onchange="setUpShiftChange(this.value)">
+    {% for line in lines %}
+        <option value="{{line}}">{{line}}</option>
+    {% endfor %}
+        <option value="all">všechno</option>
+</select>
+{% endblock %}
+
+{% block main-content %}
+
+<div class="wrapper">
+    <section class="kpi-cards">
+        <div class="kpi-card gray">
+            <div class="kpi-title">Sbezpečnost</div>
+            <div class="kpi-actual-value" data-kpi="safety" data-api="safety" data-actual-value></div>
+            <div class="kpi-target-value" data-kpi="safety" data-api="safety" data-target-value>Cíl: <span></span></div>
+        </div>
+        <div class="kpi-card gray">
+            <div class="kpi-title">Qkvalita</div>
+            <div class="kpi-actual-value" data-kpi="quality" data-api="RQ" data-actual-value></div>
+            <div class="kpi-target-value" data-kpi="quality" data-api="RQ" data-target-value>Cíl: <span></span></div>
+        </div>
+        <div class="kpi-card gray">
+            <div class="kpi-title">Ddodávky</div>
+            <div class="kpi-actual-value" data-kpi="deliveries" data-api="deliveries" data-actual-value></div>
+            <div class="kpi-target-value" data-kpi="deliveries" data-api="deliveries" data-target-value>Cíl: <span></span></div>
+        </div>
+        <div class="kpi-card gray">
+            <div class="kpi-title">Cnáklady</div>
+            <div class="kpi-actual-value" data-kpi="costs" data-api="costs" data-actual-value></div>
+            <div class="kpi-target-value" data-kpi="costs" data-api="costs" data-target-value>Cíl: <span></span></div>
+        </div>
+        <div class="kpi-card gray">
+            <div class="kpi-title">Plidé</div>
+            <div class="kpi-actual-value" data-kpi="people" data-api="people" data-actual-value></div>
+            <!-- <div class="kpi-target-value" data-kpi="people" data-api="people" data-target-value>Cíl: <span></span></div> -->
+        </div>
+    </section>
+
+    <section class="kpi-timeline" id="kpi-timeline">
+        <div class="kpi-timeline-row kpi-timeline-header" id="kpi-timeline-header">
+            <div class="kpi-timeline-row-header">
+                KPI
+            </div>
+        </div>
+        <div class="kpi-timeline-row" data-kpi="Safety" data-api="safety">
+            <div class="kpi-timeline-row-header">
+                Bezpečnost
+            </div>
+        </div>
+        <div class="kpi-timeline-row" data-api="RQ" data-kpi="quality">
+            <div class="kpi-timeline-row-header">
+                Kvalita
+            </div>
+        </div>
+        <div class="kpi-timeline-row" data-api="deliveries" data-kpi="Deliveries">
+            <div class="kpi-timeline-row-header">
+                Dodávky (DLP1)
+            </div>
+        </div>
+        <div class="kpi-timeline-row" data-api="costs" data-kpi="Costs">
+            <div class="kpi-timeline-row-header">
+                Náklady (DLP3)
+            </div>
+        </div>
+        <div class="kpi-timeline-row" data-api="people" data-kpi="People">
+            <div class="kpi-timeline-row-header">
+                Lidé
+            </div>
+        </div>
+    </section>
+
+    <section class="other-info">
+        <div class="5s-info">
+            <h4 style="height: 20%">5S proběhlo</h4>
+            <div style="width: 100%; height: 80%">
+                <input type="checkbox" name="info-5s" id="" value="info-5s" style="width: 100%; height: 100%; cursor: pointer" onchange="storeData(this)">
+            </div>
+        </div>
+        
+        <div class="text-info-1">
+            <h4 style="height: 20%">Informace pro další směnu</h4>
+            <textarea name="text-info-1" id="" onchange="storeData(this)"></textarea>
+        </div>
+
+        <div class="text-info-2">
+            <h4 style="height: 20%">Informace pro PUT</h4>
+            <textarea name="text-info-2" id="" onchange="storeData(this)"></textarea>
+        </div>
+
+        <div class="shift-change-agreement">
+            <h4 style="height: 20%">Potvrzení předání</h4>
+            <div style="width: 100%; height: 80%">
+                <input type="checkbox" name="shift-change-agreement" id="" style="width: 100%; height: 100%; cursor: pointer" onchange="storeData(this)">
+            </div>
+        </div>
+    </section>
+
+</div>
+
+<div id="modal" class="modal">
+
+    <div class="modal-content">
+        <div class="close" id="close-button">&times;</div>
+        <div class="modal-text" id="modal-text">Text</div>
+    </div>
+
+</div>
+
+<div id="multitable" class="multitable hidden">
+    <section class="kpi-timeline full-height reduced-72" id="kpi-timeline-multitable">
+        <div class="kpi-timeline-row kpi-timeline-header" id="kpi-timeline-header-multitable" style="height: 5%">
+            <div class="kpi-timeline-row-header">
+                KPI
+            </div>
+        </div>
+        <div class="kpi-timeline-row tall-row" data-kpi="Safety" data-api="safety">
+            <div class="kpi-timeline-row-header">
+                Bezpečnost
+            </div>
+        </div>
+        <div class="kpi-timeline-row tall-row" data-api="RQ" data-kpi="quality">
+            <div class="kpi-timeline-row-header">
+                Kvalita
+            </div>
+        </div>
+        <div class="kpi-timeline-row tall-row" data-api="deliveries" data-kpi="Deliveries">
+            <div class="kpi-timeline-row-header">
+                Dodávky (DLP1)
+            </div>
+        </div>
+        <div class="kpi-timeline-row tall-row" data-api="costs" data-kpi="Costs">
+            <div class="kpi-timeline-row-header">
+                Náklady (DLP3)
+            </div>
+        </div>
+        <div class="kpi-timeline-row tall-row" data-api="people" data-kpi="People">
+            <div class="kpi-timeline-row-header">
+                Lidé
+            </div>
+        </div>
+    </section>
+    <div class="shift-change-info">
+        <div class="5s-info">
+            <h4 style="height: 20%">5S proběhlo</h4>
+            <div style="width: 100%; height: 80%">
+                <input type="checkbox" name="info-5s" id="" value="info-5s" style="width: 100%; height: 100%; cursor: pointer"
+                    onchange="storeData(this)">
+            </div>
+        </div>
+    
+        <div class="text-info-1">
+            <h4 style="height: 20%">Informace pro další směnu</h4>
+            <textarea name="text-info-1" id="" onchange="storeData(this)"></textarea>
+        </div>
+    
+        <div class="text-info-2">
+            <h4 style="height: 20%">Informace pro PUT</h4>
+            <textarea name="text-info-2" id="" onchange="storeData(this)"></textarea>
+        </div>
+    
+        <div class="shift-change-agreement">
+            <h4 style="height: 20%">Potvrzení předání</h4>
+            <div style="width: 100%; height: 80%">
+                <input type="checkbox" name="shift-change-agreement" id="" style="width: 100%; height: 100%; cursor: pointer"
+                    onchange="storeData(this)">
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block script-bottom %}
+<script>
+    var selectedLine = window.localStorage.getItem('selectedLine') ? window.localStorage.getItem('selectedLine') : document.querySelector('option').textContent;
+    var desiredTime = null;
+    var multiTableMode = false;
+    var timelineStart;
+    var timelineEnd;
+    const lines = {{lines|safe}};
+    const modal = document.getElementById('modal');
+    const multitable = document.getElementById('multitable');
+    const categoriesForDeviation = ['', 'Operátor', 'Materiál', 'Proces', 'Stroj -> výrobní linka', 'Měření', 'Organizace', 'Ostatní'];
+    const categoriesForCountermeasures = ['', 'Zásah operátora do výrobního zařízení', 'Zásah seřizovače do výrobního zařízení', 'Zásah údržby', 'Zásah externího dodavatele', 'Zásah logistiky - dodání materiálu', 'Zásah mistra', 'Porada', 'Eskalace o úroveň výše', 'Proškolení operátora', 'Přezkoušení operátora', 'Změna technologického postupu', 'Změna kontrolní návodky', 'Úprava katalogu vad', 'Kontrola způsobu eskalace'];
+    const intervalLength = 60 * 60 * 1000;
+    const shiftResultDivs = document.querySelectorAll('div.kpi-actual-value');
+    const updateDeviationUrl = "{% url 'dms:update_deviation' %}";
+    const timelineUrl = "{% url 'dms:get_timeline' %}";
+    const kpiTimeline = document.getElementById('kpi-timeline');
+    const kpiTimelineMultitable = document.getElementById('kpi-timeline-multitable');
+    const kpiTimelineRows = kpiTimeline.querySelectorAll('div.kpi-timeline-row');
+    const kpiTimelineRowsMultitable = kpiTimelineMultitable.querySelectorAll('div[class="kpi-timeline-row tall-row"], div[class="kpi-timeline-row kpi-timeline-header"]');
+    const kpiCards = document.querySelectorAll('div[class*="kpi-card"]');
+    const kpiTimelineHeader = document.getElementById('kpi-timeline-header');
+    const kpiTimelineHeaderMultitable = document.getElementById('kpi-timeline-header-multitable');
+    const fetchUrl = "http://10.49.34.122:8000/api/";
+    const safetyResults = {};
+    
+    var shiftBounds = [];
+
+    const translations = {
+            'quality': 'kvalita',
+            'RQ': 'kvalita',
+            'deliveries': 'dodávky',
+            'costs': 'náklady',
+            'safety': 'bezpečnost',
+            'break': 'přestávka',
+            'downtime': 'prostoj',
+            'changeover': 'přestavba'
+        }
+
+    document.getElementById('close-button').addEventListener('click', () => {
+        modal.style.display = "none";
+    })
+
+    window.onclick = () => {
+        if (event.target == modal) {
+            modal.style.display = "none";
+        }
+    }
+
+    async function storeData(element) {
+        const resp = await fetch(document.location, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 'line': selectedLine, 'desired-time': desiredTime ? desiredTime : new Date(), 'element-name': element.name, 'element-value': element.type == "checkbox" ? element.checked : element.value, 'requested_data': "store-shift-info" })
+
+        })
+    }
+
+    function setUpShiftChange(line) {
+        if (line != "all") {
+            selectedLine = line;
+            window.localStorage.setItem('selectedLine', line);
+            selectedLine = line;
+            refreshPage();
+        }
+        else {
+            selectedLine = "all";
+            showAllLines();
+        }
+    }
+
+    function showAllLines() {
+        multiTableMode = true;
+        document.querySelector('div.wrapper').querySelectorAll('section').forEach(section => section.classList.add('hidden'));
+        multitable.classList.remove('hidden');
+        document.querySelector('div.wrapper').append(multitable);
+        drawTimeline();
+    }
+
+    async function refreshPage() {
+        multitable.classList.add('hidden');
+        multiTableMode = false;
+        document.querySelector('div.wrapper').querySelectorAll('section').forEach(section => section.classList.remove('hidden'));
+        kpiCards.forEach(kpiCard => { kpiCard.classList = "kpi-card gray"; kpiCard.querySelector('div.kpi-actual-value').textContent = "" });
+        document.querySelector(`option[value="${selectedLine}"]`).selected = true;
+        document.querySelectorAll('.active-icon').forEach(icon => icon.classList.remove('active-icon'));
+        document.getElementById('shift-change-icon').classList.add('active-icon');
+        await drawTimeline();
+        fillInShiftInto();
+
+        if (multiTableMode == false) {
+            getShiftTargets().then(shiftTargets => { fillInShiftTargets(shiftTargets) });
+        } else {
+            getShiftLineTargets().then(shiftLineTargets => { fillInShiftLineTargets(shiftLineTargets) });
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        window.localStorage.removeItem('desiredDatetime');
+        refreshPage();
+    })
+
+    async function fillInShiftInto() {
+        const resp = await fetch(window.location, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 'line': selectedLine, 'requested_data': 'shift_info', 'shift-beginning': timelineStart, 'shift-end': timelineEnd })
+        })
+
+        let jsonResp = await resp.json();
+
+        document.querySelectorAll('input[name="info-5s"]').forEach(_ => { _.checked = jsonResp['info_5s'] });
+        document.querySelectorAll('input[name="shift-change-agreement"]').forEach(_ => {_.checked = jsonResp['handover_confirmed'] });
+        document.querySelectorAll('textarea[name="text-info-1"]').forEach(_ => { _.value = jsonResp['text_info_1'] });
+        document.querySelectorAll('textarea[name="text-info-2"]').forEach(_ => { _.value = jsonResp['text_info_2'] });
+
+        console.log(jsonResp);
+    }
+
+    async function getShiftTargets() {
+        const resp = await fetch(window.location, {
+            method: 'POST',
+            mode: 'cors',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 'line': selectedLine, 'desired-time': desiredTime ? desiredTime : new Date(), 'requested_data': 'targets' })
+        });
+
+        return resp.json();
+    }
+    
+    async function getShiftLineTargets() {
+        const resp = await fetch(window.location, {
+            method: 'POST',
+            mode: 'cors',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 'line': lines, 'desired-time': desiredTime ? desiredTime : new Date(), 'requested_data': 'line_targets' })
+        });
+    
+        return resp.json();
+    }
+
+    async function getShiftResults() {
+        for (let i = 0; i < Array.from(shiftResultDivs).length; i++) {
+            let shiftResultDiv = Array.from(shiftResultDivs)[i];
+
+                const resp = await fetch(`${fetchUrl}${shiftResultDiv.dataset.api}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 'line': selectedLine, 'interval_beginning': shiftBounds[0], 'interval_end': shiftBounds[1] })
+                })
+        
+                data = await resp.json();
+    
+                if (data['valid'] == false) {
+                    return false
+                }
+    
+                shiftResultDiv.textContent = shiftResultDiv.dataset.api != "people" ? (data['result'] * 100).toFixed(0) + "%" : data['result'].toFixed(1);
+                let kpiCard = shiftResultDiv.closest('div[class*="kpi-card"]');
+    
+                if (parseFloat(shiftResultDiv.dataset.target) <= parseFloat(data['result']) || shiftResultDiv.dataset.api == "people") {
+                    kpiCard.classList.remove('gray');
+                    kpiCard.classList.add('green');
+                } else {
+                    kpiCard.classList.remove('gray');
+                    kpiCard.classList.add('red');
+                }
+            }
+        }
+
+    function fillInShiftTargets(shiftTargets) {
+        for (const [kpi, value] of Object.entries(shiftTargets)) {
+            let timeSlotCells = Array.from(document.querySelectorAll(`div.timeline-slot[data-api="${kpi}"]`));
+
+            for (let i = 0; i < timeSlotCells.length; i++) {
+                timeSlotCells[i].dataset.target = value;
+            }
+
+            let targetSpan = document.querySelector(`div.kpi-target-value[data-api="${kpi}"]`).querySelector('span').textContent = (parseFloat(value) * 100).toFixed(0) + "%";
+
+            document.querySelector(`div.kpi-actual-value[data-api="${kpi}"]`).dataset.target = value;
+        }
+    }
+    
+    function fillInShiftLineTargets(shiftLineTargets) {
+        for (const [line, values] of Object.entries(shiftLineTargets)) {
+            for (const [kpi, value] of Object.entries(values)) {
+
+                let timeSlotCells = Array.from(document.querySelectorAll(`div[data-purpose="line-value"][data-line="${line}"][data-api="${kpi}"]`));
+            
+                for (let i = 0; i < timeSlotCells.length; i++) {
+                    timeSlotCells[i].dataset.target = value;
+                }
+                        
+            }
+        }
+    }
+    
+    async function pushDataToTimeline() {
+        if (multiTableMode == false) {
+            const kpiCells = Array.from(document.querySelectorAll('div.timeline-slot[data-api]'));
+    
+            for (let i = 0; i < kpiCells.length; i++) {
+                if (new Date(kpiCells[i].dataset.intervalEnd) < new Date()) {
+                    let kpi = kpiCells[i].dataset.kpi;
+                    let API = kpiCells[i].dataset.api;
+                    let intervalStart = kpiCells[i].dataset.intervalStart;
+                    let intervalEnd = kpiCells[i].dataset.intervalEnd;
+                    await fetchResult(API, intervalStart, intervalEnd).then(kpiData => fillInData(kpiCells[i], kpiData));
+                }
+            }
+        }
+
+        if (multiTableMode == true) {
+            const kpiCells = Array.from(document.querySelectorAll('div[data-purpose="line-value"]'));
+
+            for (let i = 0; i < kpiCells.length; i++) {
+                if (new Date(kpiCells[i].dataset.intervalEnd) < new Date()) {
+                    let cellLine = kpiCells[i].dataset.line;
+                    let kpi = kpiCells[i].dataset.kpi;
+                    let API = kpiCells[i].dataset.api;
+                    let intervalStart = kpiCells[i].dataset.intervalStart;
+                    let intervalEnd = kpiCells[i].dataset.intervalEnd;
+                    await fetchResultMulti(cellLine, API, intervalStart, intervalEnd).then(kpiData => fillInData(kpiCells[i], kpiData));
+                }
+            }
+        }
+    }
+
+                               
+
+    async function fetchResult(API, intervalStart, intervalEnd) {
+        const resp = await fetch(`${fetchUrl}${API}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 'line': selectedLine, 'interval_beginning': intervalStart, 'interval_end': intervalEnd })
+        })
+
+        return resp.json()
+    }
+
+    async function fetchResultMulti(cellLine, API, intervalStart, intervalEnd) {
+        const resp = await fetch(`${fetchUrl}${API}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 'line': cellLine, 'interval_beginning': intervalStart, 'interval_end': intervalEnd })
+        })
+
+        return resp.json()
+    }
+
+    function fillInData(kpiCell, kpiData) {
+        if (kpiData) {
+            if (kpiData['valid'] == false) {
+                kpiCell.textContent = " - ";
+                return false            
+            }
+            kpiCell.textContent = kpiCell.dataset.api != "people" ? (kpiData['result'] * 100).toFixed(0) + "%" : kpiData['result'].toFixed(1)
+            kpiCell.dataset.actual = kpiData['result'];
+            if (parseFloat(kpiCell.dataset.target) > parseFloat(kpiData['result'])) {
+                kpiCell.classList.add('deviated');
+                kpiCell.addEventListener('click', showDeviationDetails)
+            } else {
+                kpiCell.classList.add('achieved');
+            }
+        }
+    }
+
+    async function drawTimeline() {
+        document.querySelectorAll('div.timeline-slot').forEach(timelineSlot => timelineSlot.remove());
+        if (multiTableMode == false) {
+            await getTimelineBounds()
+                .then(timeline => getIntervals(timeline))
+                .then(intervals => fillTimeline(intervals))
+                .then(() => getShiftTargets())
+                .then(shiftTargets => fillInShiftTargets(shiftTargets))
+                .then(() => getShiftResults())
+                .then(() => pushDataToTimeline())
+            } else {
+            await getTimelineBounds()
+                .then(timeline => getIntervals(timeline))
+                .then(intervals => fillTimeline(intervals))
+                .then(() => getShiftLineTargets())
+                .then(shiftLineTargets => fillInShiftLineTargets(shiftLineTargets))
+                .then(() => getShiftResults())
+                .then(() => pushDataToTimeline())
+        }
+    }
+
+    function triggerTimeChanged() {
+        desiredTime = window.localStorage.getItem('desiredDatetime');
+        refreshPage();
+    }
+
+    async function getTimelineBounds() {
+        const resp = await fetch(timelineUrl, {
+            method: 'POST',
+            mode: 'cors',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 'line': selectedLine, 'desired-time': desiredTime ? desiredTime : new Date() })
+        });
+
+        let timelineBounds = await resp.json();
+
+        console.log(timelineBounds)
+
+        return { 'timelineBounds': timelineBounds };
+    }
+
+    async function getIntervals(timeline) {
+        if (multiTableMode == false) {
+            timelineStart = new Date(timeline['timelineBounds']['start']);
+            timelineEnd = new Date(timeline['timelineBounds']['end']);
+            shiftEnd = new Date(new Date(timelineEnd).setHours(timelineEnd.getHours() - 1, 45));
+            shiftBounds = [timelineStart, shiftEnd]
+            timelineIntervals = ((timelineEnd - timelineStart) / intervalLength) - 1;
+            intervalWidth = kpiTimeline.offsetWidth / (timelineIntervals + 1);
+            return { 'intervalWidth': intervalWidth, 'intervalsCount': timelineIntervals, 'intervalStep': intervalLength, 'intervalsStart': timelineStart }
+        }
+        else {
+            timelineStart = new Date(timeline['timelineBounds']['start']);
+            timelineEnd = new Date(timeline['timelineBounds']['end']);
+            shiftEnd = new Date(new Date(timelineEnd).setHours(timelineEnd.getHours() - 1, 45));
+            shiftBounds = [timelineStart, shiftEnd]
+            timelineIntervals = ((timelineEnd - timelineStart) / intervalLength) - 1;
+            intervalWidth = kpiTimelineMultitable.offsetWidth / (timelineIntervals + 3);
+            return { 'intervalWidth': intervalWidth, 'intervalsCount': timelineIntervals, 'intervalStep': intervalLength, 'intervalsStart': timelineStart }
+        }
+    }
+
+    async function fillTimeline(intervals) {
+        if (multiTableMode == false) {
+            for (let j = 0; j < Array.from(kpiTimelineRows).length; j++) {
+                let timelineRow = kpiTimelineRows[j];
+
+                for (i = 0; i <= intervals['intervalsCount']; i++) {
+                    let timelineSlot = document.createElement('div')
+                    timelineSlot.style.width = `${intervals['intervalWidth']}px`;
+                    timelineSlot.classList.add('timeline-slot');
+                    intervalStart = new Date(intervals['intervalsStart'].getTime() + i * intervals['intervalStep']);
+                    intervalEnd = new Date(new Date(intervalStart).setHours(intervalStart.getHours() + 1));
+                    timelineSlot.dataset.intervalStart = toISOStringWithTimezone(intervalStart);
+                    timelineSlot.dataset.intervalEnd = toISOStringWithTimezone(intervalEnd);
+                    timelineSlot.dataset.kpi = timelineRow.dataset.kpi;
+                    timelineSlot.dataset.api = timelineRow.dataset.api;
+        
+                    timelineRow.appendChild(timelineSlot);
+                }
+            }
+    
+            kpiTimelineHeader.querySelectorAll('div.timeline-slot').forEach(headingCell => {
+                headingCell.removeAttribute('data-kpi');
+                headingCell.removeAttribute('data-api');
+                let interval = new Date(headingCell.dataset.intervalStart);
+                headingCell.textContent = `${interval.getHours().toString().padStart(2, "0")}:${interval.getMinutes().toString().padStart(2, "0") }`;
+            })
+        }
+
+        else {
+            kpiTimelineRowsMultitable.forEach((timelineRow, index) => {
+                let linesDiv = document.createElement('div');
+                linesDiv.style = "display: flex; flex-flow: column; max-height: 100%; overflow: hidden;";
+                linesDiv.style.width = `${intervals['intervalWidth']}px`;
+                for (i = 0; i < lines.length; i++) {
+                    let lineDiv = document.createElement('div');
+                    lineDiv.classList.add('line-label')
+                    lineDiv.dataset.purpose = "line-label"
+                    lineDiv.textContent = lines[i];
+                    linesDiv.append(lineDiv);
+                }
+
+                if (index == 0) {
+                    lineNamesDiv = document.createElement('div');
+                    lineNamesDiv.textContent = "Linka";
+                    lineNamesDiv.style = "display: flex; flex-flow: column"
+                    lineNamesDiv.style.width = `${intervals['intervalWidth']}px`;
+                    timelineRow.append(lineNamesDiv);
+
+                } else {
+                    timelineRow.append(linesDiv);
+                }
+                
+            });
+
+            kpiTimelineRowsMultitable.forEach(timelineRow => {
+                for (i = 0; i <= intervals['intervalsCount']; i++) {
+                    let timelineSlot = document.createElement('div')
+                    timelineSlot.style.width = `${intervals['intervalWidth']}px`;
+                    timelineSlot.classList.add('timeline-slot');
+                    timelineSlot.style.display = "flex";
+                    timelineSlot.style.flexFlow = "column";
+                    timelineSlot.style.overflow = "hidden";
+                    intervalStart = new Date(intervals['intervalsStart'].getTime() + i * intervals['intervalStep']);
+                    intervalEnd = new Date(new Date(intervalStart).setHours(intervalStart.getHours() + 1));
+                    timelineSlot.dataset.intervalStart = toISOStringWithTimezone(intervalStart);
+                    timelineSlot.dataset.intervalEnd = toISOStringWithTimezone(intervalEnd);
+                    timelineSlot.dataset.kpi = timelineRow.dataset.kpi;
+                    timelineSlot.dataset.api = timelineRow.dataset.api;
+
+                    timelineRow.appendChild(timelineSlot);
+
+                    for (j = 0; j < lines.length; j++) {
+                        let lineResultDiv = document.createElement('div');
+                        lineResultDiv.dataset.purpose = "line-value";
+                        lineResultDiv.dataset.line = lines[j];
+                        lineResultDiv.dataset.kpi = timelineSlot.dataset.kpi;
+                        lineResultDiv.dataset.api = timelineSlot.dataset.api;
+                        lineResultDiv.dataset.intervalStart = timelineSlot.dataset.intervalStart;
+                        lineResultDiv.dataset.intervalEnd = timelineSlot.dataset.intervalEnd;
+                        lineResultDiv.classList.add('line-result')
+                        // lineResultDiv.textContent = "value";
+                        timelineSlot.append(lineResultDiv);
+                    }
+                }
+            })
+
+            kpiTimelineHeaderMultitable.querySelectorAll('div.timeline-slot').forEach(headingCell => {
+                headingCell.removeAttribute('data-kpi');
+                headingCell.removeAttribute('data-api');
+                let interval = new Date(headingCell.dataset.intervalStart);
+                headingCell.textContent = `${interval.getHours().toString().padStart(2, "0")}:${interval.getMinutes().toString().padStart(2, "0")}`;
+            })      
+
+            document.querySelectorAll('div[data-purpose="line-label"]').forEach(lineLabel => {
+                lineLabel.style.fontSize = `${lineLabel.parentElement.offsetHeight / 8 - 4}px`;
+                lineLabel.style.lineHeight = `${lineLabel.parentElement.offsetHeight / 8}px`;
+            })
+
+            document.querySelectorAll('div[data-purpose="line-value"]').forEach(lineLabel => {
+                lineLabel.style.fontSize = `${lineLabel.parentElement.offsetHeight / 8 - 4}px`;
+                lineLabel.style.lineHeight = `${lineLabel.parentElement.offsetHeight / 8}px`;
+            })
+        }
+    }
+
+    const toISOStringWithTimezone = date => {
+        const tzOffset = -date.getTimezoneOffset();
+        const diff = tzOffset >= 0 ? '+' : '-';
+        const pad = n => `${Math.floor(Math.abs(n))}`.padStart(2, '0');
+        return date.getFullYear() +
+            '-' + pad(date.getMonth() + 1) +
+            '-' + pad(date.getDate()) +
+            'T' + pad(date.getHours()) +
+            ':' + pad(date.getMinutes()) +
+            ':' + pad(date.getSeconds()) +
+            diff + pad(tzOffset / 60) +
+            ':' + pad(tzOffset % 60);
+    };
+
+    async function showDeviationDetails(event) {
+        let intervalBeginning = event.target.dataset.intervalStart;
+        let intervalEnd = event.target.dataset.intervalEnd;
+        let kpi = event.target.dataset.api;
+        if (multiTableMode == false) {
+            deviation = await fetchDeviation(kpi, intervalBeginning, intervalEnd, line = selectedLine );
+        } else {
+            deviation = await fetchDeviation(kpi, intervalBeginning, intervalEnd, line = event.target.dataset.line );
+        }
+
+        let deviationId = deviation['result'][3];
+        event.target.dataset.deviationId = deviationId;
+        modal.style.display = "block";
+        modal.dataset.deviationId = deviationId;
+
+        document.getElementById('modal-text').innerHTML = "";
+
+        let intervalsDiv = document.createElement('div');
+        intervalsDiv.style = 'display: flex; flex-flow: row; justify-content: space-between';
+
+        intervalsDiv.innerHTML += `<div>Začátek intervalu: ${new Date(intervalBeginning).toLocaleString()}</div>`;
+        intervalsDiv.innerHTML += `<div>Konec intervalu: ${new Date(intervalEnd).toLocaleString()}</div>`;
+        intervalsDiv.innerHTML += `<p> KPI: ${translations[kpi]}</p>`;
+
+        document.getElementById('modal-text').append(intervalsDiv);
+
+        let lossesDiv = document.createElement('div');
+        lossesDiv.style = 'display: flex; flex-flow: row; justify-content: space-between; padding: 3vh 0';
+
+        let qualityLossDetail = await fetchResultMulti(multiTableMode ? event.target.dataset.line : selectedLine, 'quality', intervalBeginning, intervalEnd);
+        let qualityLossDiv = document.createElement('div');
+
+        qualityLossDiv.innerHTML += `<p>Ztráty kvality: </p>`
+        qualityLossItem = document.createElement('div');
+        qualityLossItem.textContent = `${qualityLossDetail['nok_parts']} NOK ks (z ${qualityLossDetail['nok_parts'] + qualityLossDetail['ok_parts']}) = ${(qualityLossDetail['result'] * 100).toFixed(2) + "%"}`;
+        qualityLossDiv.append(qualityLossItem);
+
+        let timeLossDetail = await fetchResultMulti(multiTableMode ? event.target.dataset.line : selectedLine, 'time_losses', intervalBeginning, intervalEnd);
+        let timeLossDiv = document.createElement('div');
+
+        timeLossDiv.innerHTML += `<p>Ztráty času: </p>`;
+
+        timeLossDetail['result'].forEach(timeLossDetail => {
+            let timeLossItem = document.createElement('div');
+            let timeLossBeginning = new Date(timeLossDetail[0]).toLocaleTimeString();
+            let timeLossEnd = new Date(timeLossDetail[1]).toLocaleTimeString();
+            timeLossItem.textContent = `${timeLossBeginning} - ${timeLossEnd} ${translations[timeLossDetail[2]]}`;
+            timeLossDiv.append(timeLossItem);
+        })
+        
+        document.getElementById('modal-text').append(lossesDiv);
+        
+        let productionLossDetail = await fetchResultMulti(multiTableMode ? event.target.dataset.line : selectedLine, 'deliveries', intervalBeginning, intervalEnd);
+        let productionLossDiv = document.createElement('div');
+        
+        productionLossDiv.innerHTML += `<p>Ztráty produkce: </p>`;
+        productionLossItem = document.createElement('div');
+        productionLossItem.textContent = `${productionLossDetail['target_deliveries'] - productionLossDetail['delivered_parts']}`;
+        
+        productionLossDiv.append(productionLossItem);
+        
+        lossesDiv.append(qualityLossDiv);
+        lossesDiv.append(timeLossDiv);
+        lossesDiv.append(productionLossDiv);
+
+        let categoriesWrapper = document.createElement('div');
+        categoriesWrapper.style = 'display: flex; flex-flow: row; justify-content: space-between';
+
+        let categoryForDeviationContainer = document.createElement('div');
+        let categoryForCountermeasureContainer = document.createElement('div');
+
+        categoriesWrapper.append(categoryForDeviationContainer)
+        categoriesWrapper.append(categoryForCountermeasureContainer)
+
+        let categoryForDeviationSelect = document.createElement('select');
+        categoryForDeviationSelect.addEventListener('change', e => updateDeviation(e));
+        categoryForDeviationSelect.id = 'deviation-category-select';
+        categoryForDeviationSelect.name = 'deviation-category';
+        
+        let categoryForDeviationLabel = document.createElement('label');
+        categoryForDeviationLabel.textContent = 'Kategorie deviace';
+        let storedDeviationData = await getStoredDeviatonData(deviationId);
+
+        categoriesForDeviation.forEach(category => {
+            let categoryOption = document.createElement('option');
+            categoryOption.textContent = category;
+            categoryOption.value = category;
+            categoryForDeviationSelect.append(categoryOption);
+            if (storedDeviationData['details']['category'] == category) {
+                categoryOption.selected = true;
+            }
+        })
+
+        categoryForDeviationContainer.append(categoryForDeviationLabel);
+        categoryForDeviationContainer.append(categoryForDeviationSelect);
+
+        let categoryForCountermeasureSelect = document.createElement('select');
+        categoryForCountermeasureSelect.addEventListener('change', e => updateDeviation(e));
+        categoryForCountermeasureSelect.id = 'deviation-countermeasure-select';
+        categoryForCountermeasureSelect.name = 'deviation-countermeasure';
+        let categoryForCountermeasureLabel = document.createElement('label');
+        categoryForCountermeasureLabel.setAttribute('for', 'deviation-countermeasure-select');
+        categoryForCountermeasureLabel.textContent = 'Kategorie opatření';
+
+        categoriesForCountermeasures.forEach(counterMeasure => {
+            let categoryOption = document.createElement('option');
+            categoryOption.textContent = counterMeasure;
+            categoryOption.value = counterMeasure;
+            categoryForCountermeasureSelect.append(categoryOption);
+            if (storedDeviationData['details']['countermeasure'] == counterMeasure) {
+                categoryOption.selected = true;
+            }
+        })
+
+        categoryForCountermeasureContainer.append(categoryForCountermeasureLabel);
+        categoryForCountermeasureContainer.append(categoryForCountermeasureSelect);
+        
+        document.getElementById('modal-text').append(categoriesWrapper);
+        
+        let freeTextDiv = document.createElement('div');
+        freeTextDiv.style = 'display: flex; flex-flow: row; justify-content: space-between; margin-top: 3vh;';
+        
+        let freeText = document.createElement('textarea');
+        freeText.style = "width: 90%; resize: none; padding: 0.5vh 0.5vw; font-family: 'Noto Sans'; font-size: clamp(12px, 2vh, 24px); margin: 0";
+        freeText.name = "deviation-text";
+        if (storedDeviationData['details']['text']) {
+            freeText.value = storedDeviationData['details']['text'];
+        }
+
+        freeText.addEventListener('change', e => updateDeviation(e));
+        let freeTextLabel = document.createElement('label');
+        freeTextLabel.textContent = "Volný text";
+
+        freeTextDiv.append(freeTextLabel);
+        freeTextDiv.append(freeText);
+
+        document.getElementById('modal-text').append(freeTextDiv);
+    }
+
+    async function fetchDeviation(kpi, intervalStart, intervalEnd, line) {
+        const resp = await fetch(`${fetchUrl}deviations`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 'line': line, 'interval_beginning': intervalStart, 'interval_end': intervalEnd, 'kpi': kpi })
+        })
+
+        data = await resp.json();
+
+        return data;
+    }
+
+    async function getStoredDeviatonData(deviationId) {
+        const resp = await fetch(`${updateDeviationUrl}?deviation_id=${deviationId}`);
+
+        data = await resp.json();
+
+        return data
+    }
+
+    async function updateDeviation(event) {
+        let changedItem = event.target.name;
+        let changedValue = event.target.value;
+        let deviationId = event.target.closest('#modal').dataset.deviationId;
+        const resp = await fetch(updateDeviationUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 'deviation_id': deviationId, 'changed_item': changedItem, 'changed_value': changedValue })
+        })
+
+        let data = await resp.json();
+    }
+
+</script>
+{% endblock %}

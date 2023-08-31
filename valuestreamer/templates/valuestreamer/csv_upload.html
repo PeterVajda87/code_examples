@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="../static/scripts/papaparse.min.js"></script>
+</head>
+<body>
+    <label for="file">Nahrajte sem .csv soubor</label>
+    <input type="file" name="csv_file">
+
+    <input type="submit" onclick="sendData()">
+
+<script>
+
+    function sendData() {
+        parseFile(document.querySelector('input[type="file"]').files[0])
+    }
+
+    async function parseFile(csvFile) {
+        Papa.parse(csvFile, {
+            complete: function (results) {
+                uploadData(results.data)
+            }
+        });
+    }
+
+    async function uploadData(data) {
+        if (document.getElementById('infomessage')) {
+            document.getElementById('infomessage').remove();
+        }
+        let infoMessage = document.createElement('div');
+        infoMessage.id = "infomessage";
+        infoMessage.textContent = "Nahravam";
+        document.body.append(infoMessage);
+        const resp = await fetch(document.location, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                'data': data,
+            })
+        })
+
+        jsonResp = await resp.json();
+
+        document.getElementById('infomessage').textContent = jsonResp['resp']
+    }
+
+</script>
+</body>
+</html>

@@ -1,0 +1,274 @@
+{% extends 'reman_2/base.html' %}
+
+{% block style %}
+<style>
+    table {
+        user-select: none;
+        position: relative;
+        top: 5vh;
+        max-width: 100%;
+        height: 95vh;
+        border: 1px solid lightgray;
+        border-collapse: collapse;
+        color: white;
+        font-size: small;
+        background-color: hsla(100, 50%, 5%, .9);
+        table-layout: fixed;
+    }
+
+    thead {
+        position: sticky;
+        top: 0vh;
+        background-color: black;
+    }
+
+    th {
+        text-align: left;
+    }
+
+    tbody {
+        overflow-y: scroll;
+        max-height: 95vh;
+    }
+
+    tr {
+        border-bottom: 1px solid lightgray;
+    }
+
+    tr:nth-child(even) {
+        background-color: hsla(200, 50%, 20%, .9);
+    }
+
+    td {
+        padding: 0 .25rem;
+    }
+
+    td:not(:last-of-type) {
+        border-right: 1px solid white;
+    }
+
+    input {
+        background-color: transparent;
+        color: white;
+        outline: none;
+        border: none;
+    }
+
+    tr > th,
+    tr > td:not(:last-of-type) {
+        width: 10vw;
+    }
+
+    tr > td:nth-of-type(5) {
+        width: 60vw;
+    }
+
+    .secondary-material:not(:last-of-type) {
+        padding-right: 1rem;
+    }
+    
+    .secondary-material:hover {
+        background-color: rgba(255, 255, 255, 0.5);
+        cursor: pointer;
+    }
+
+    .pointer {
+        cursor: pointer;
+    }
+    
+</style>
+{% endblock %}
+{% block body %}
+
+<table id="table">
+<thead id="tableHead">
+    <tr>
+        <th onclick="sortBy(this)" class="both sorting pointer" id="material_number">Materiálové číslo</th>
+        <th onclick="sortBy(this)" class="both sorting pointer" id="actualization">Aktualizováno</th>
+        <th class="both sorting">Skupina</th>
+        <th class="both sorting">Zákazník</th>
+        <th class="both sorting">Podřazené materiály</th>
+    </tr>
+
+</thead>
+
+<tbody id="tableBody">
+    {% for material in root_materials %}
+    <tr data-id="{{material.id}}">
+        <td>{{material.material_number}}</td>
+        <td>{{material.refreshed|default_if_none:""|date:"Y-m-d H:i"}}</td>
+        <td><input data-id="{{material.id}}" data-field="material-group" list="material-groups" name="material-groups" value='{{material.material_group.material_group|default_if_none:""}}'></td>
+        <td><input data-id="{{material.id}}" data-field="customer" list="customers" name="customers" value='{{material.customer.customer_name|default_if_none:""}}'></td>
+        <td>{% for fg in material.root_material.all|dictsort:"compound_material.material_number" %} <span class="secondary-material" data-id="{{fg.id}}">{{fg.compound_material.material_number}} (<span class="secondary-material-quantity">{{fg.compound_material_quantity}}</span>x)</span> {% endfor %}</td>
+
+    </tr>
+    {% endfor %}
+</tbody>
+</table>
+
+<datalist id="material-groups">
+    {% for material_group in material_groups %}
+    <option value="{{material_group.material_group}}"></option>
+    {% endfor %}
+</datalist>
+
+
+<datalist id="customers">
+    {% for customer in customers %}
+    <option value="{{customer.customer_name}}"></option>
+    {% endfor %}
+</datalist>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const secondaryMaterialSpans = document.querySelectorAll('.secondary-material')
+    const inputFields = document.querySelectorAll('input[data-field]')
+    const tableHead = document.getElementById("tableHead");
+    const tableBody = document.getElementById("tableBody");
+
+    secondaryMaterialSpans.forEach((span) => {
+        span.addEventListener('contextmenu', async (e) => {
+            e.target.style.pointerEvents = "none";
+            e.preventDefault();
+            e.target.querySelector('.secondary-material-quantity').textContent = parseInt(e.target.querySelector('.secondary-material-quantity').textContent) > 1 ? parseInt(e.target.querySelector('.secondary-material-quantity').textContent) - 1 : 0;
+            await fetch(window.location, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    'root-material-composition-id': e.target.dataset.id,
+                    'compound-material-quantity': e.target.querySelector('.secondary-material-quantity').textContent
+                })
+            })
+            e.target.style.pointerEvents = "initial";
+        })
+        span.addEventListener('click', async (e) => {
+            e.target.style.pointerEvents = "none";
+            e.target.querySelector('.secondary-material-quantity').textContent = parseInt(e.target.querySelector('.secondary-material-quantity').textContent) + 1;
+            await fetch(window.location, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    'root-material-composition-id': e.target.dataset.id,
+                    'compound-material-quantity': e.target.querySelector('.secondary-material-quantity').textContent
+                })
+            })
+            e.target.style.pointerEvents = "initial";
+        })
+    })
+
+    inputFields.forEach(inputField => {
+        inputField.addEventListener('blur', (e) => {
+            fetch(window.location, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    'field': e.target.dataset.field,
+                    'id': e.target.dataset.id,
+                    'value': e.target.value,
+                })
+            })
+        })
+    })
+ 
+    cPrev = -1; 
+    var charMapL = " _0123456789aábcčdďeéěfghiíjklmnňoópqrřsštťuúůvwxyýzž";
+    var charMapU = " _0123456789AÁBCČDĎEÉĚFGHIÍJKLMNŇOÓPQRŘSŠTŤUÚŮVWXYÝZŽ";
+    var charsOrder = {};
+    for(var i in charMapL.split('')) {
+        charsOrder[charMapL[i]] = parseInt(i);
+        charsOrder[charMapU[i]] = parseInt(i);
+    }
+
+    function sortBy(column){
+        if (column.classList.contains("both")){
+            column.classList.remove("both")
+            column.classList.add("asc")
+            var reverse = 0
+        }
+        else if (column.classList.contains("asc")){
+            column.classList.add("des")
+            column.classList.remove("asc")
+            var reverse = 1
+        }
+        else {
+            column.classList.add("asc")
+            column.classList.remove("des")
+            var reverse = 0
+        }
+        sortingColumns = tableHead.getElementsByClassName('sorting')
+        for(var i=0; i < sortingColumns.length; i++){
+            if(sortingColumns[i].id != column.id){
+                if(sortingColumns[i].classList.contains("asc")){
+                    sortingColumns[i].classList.remove("asc")
+                }
+                if(sortingColumns[i].classList.contains("des")){
+                    sortingColumns[i].classList.remove("des")
+                }
+                if(sortingColumns[i].classList.contains("both")){
+                }
+                else{sortingColumns[i].classList.add("both")}
+            }
+            else{c = i}
+        }
+        rows = document.getElementById("tableBody").rows.length;
+        columns = document.getElementById("tableBody").rows[0].cells.length; 
+        arrTable = [...Array(rows)].map(e => Array(columns)); 
+        for (ro=0; ro<rows; ro++) { 
+            for (co=0; co<columns; co++) { 
+                arrTable[ro][co] = document.getElementById("tableBody").rows[ro].cells[co].innerHTML;
+            }
+        }
+        columnFromArray = getCol(arrTable, c)
+        columnFromArray.sort();
+        columnFromArray.sort(mySort);
+        rowsUsed = []
+        arrTableSorted = [...Array(rows)].map(e => Array(columns))
+        for (ro=0; ro<rows; ro++) {
+            for (var i=0; i < columnFromArray.length; i++){
+                if (columnFromArray[i] == arrTable[ro][c]){
+                    if(!rowsUsed.includes(i)){
+                        arrTableSorted[i] = arrTable[ro]
+                        rowsUsed.push(i)
+                        break
+                    }
+                }
+            }
+        }
+        if (reverse == 1){
+            arrTableSorted.reverse()
+        }
+        for (ro=0; ro<rows; ro++) {
+            for (co=0; co<columns; co++) {
+                document.getElementById("tableBody").rows[ro].cells[co].innerHTML = arrTableSorted[ro][co];
+            }
+        }
+    }
+
+    function mySort(s1, s2) {
+        var idx = 0;
+        while ( (idx < s1.length) && (idx < s2.length) && (charsOrder[s1[idx]] == charsOrder[s2[idx]])) {
+            idx ++;
+        }
+        if (idx == s1.length) return 1;
+        if (idx == s2.length) return -1;
+        return charsOrder[s1[idx]] > charsOrder[s2[idx]] ? 1 : (charsOrder[s1[idx]] < charsOrder[s2[idx]] ? -1 : 0);
+    }
+
+    function getCol(matrix, col) {
+       var column = [];
+       for(var i=0; i<matrix.length; i++){
+          column.push(matrix[i][col]);
+       }
+       return column;
+    }
+
+</script>
+
+{% endblock %}

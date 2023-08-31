@@ -1,0 +1,450 @@
+
+{% extends 'base.html' %}
+
+{% block head %}
+
+{% load carpool_tags %}
+
+{% load static %}
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+</head>
+
+
+
+<style>
+
+html, body {
+    width: 100% !important;
+    height: 100% !important;
+
+}
+
+    .carpool-breadcrumb {
+        margin: 1em;
+    }
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: Arial, Helvetica, sans-serif;
+        color: #00457e;
+    }
+
+    label {
+        font-size: 1vh;
+    }
+ 
+    .carpool-create-carloan-wrapper {
+        width: 90%;
+        height: 100%;
+        grid-template-rows: repeat(3, minmax(0, 2fr));
+        max-height: 100%;
+        margin: 0 auto;
+        font-family: Arial, Helvetica, sans-serif;
+        /* overflow: auto; */
+    }
+
+    #form-header {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(0, 2fr));
+        grid-row: 1/2;
+        height: 7rem;
+        column-gap: 3rem;
+        font-weight: bold;
+        font-family: Arial, Helvetica, sans-serif;
+    }
+
+    #form-header>div {
+        display: flex;
+        flex-flow: column;
+        min-height: 0;
+        justify-content: space-between;
+        padding: 0rem 0rem 3rem 0rem;
+        width: 100%;
+    }
+
+    .carousel {
+        --current-slide: 0;
+        width: 90%;
+        position: relative;
+        overflow: hidden;
+        margin: 0 auto;
+    }
+
+.carousel_button {
+  position: absolute;
+  top: 62.5%;
+  transform: translateY(-62.5%);
+
+  padding: 0;
+  margin: 0.5rem;
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  z-index: 1;
+
+  transition: color 0.1s;
+}
+
+.carousel-button_next {
+    right: 0;
+}
+
+.carousel_button img {
+    width: 50%;
+}
+
+.slides {
+    display: flex;
+    width: 100%;
+    height: auto;
+    transition: transform 0.5s;
+    transform: translateX(calc(-100% * var(--current-slide)));
+
+}
+
+.slide {
+    flex: 0 0 100%;
+}
+
+.slides img {
+    width: auto;
+    margin: auto;
+    display: block;
+    max-width: 90%;
+    max-height: 100%;
+}
+
+    label,
+    input {
+        display: block;
+    }
+
+    input {
+        display: flex;
+        justify-content: center;
+        padding: 0.25rem 0.5rem;
+        border: 0;
+        border-bottom: 1px solid #00457e;
+        outline: 0;
+        font-size: 2vh;
+    }
+
+    label {
+        text-transform: uppercase;
+    }
+
+    textarea {
+        resize: none;
+        padding: 0.25rem 0.25rem;
+        font-size: 2vh;
+        font-family: Arial, Helvetica, sans-serif;
+    }
+
+    input[type="file"] {
+        border: none;
+    }
+
+    .label-container {
+        display: flex;
+        flex-flow: row;
+        min-height: 0;
+        align-items: center;
+        max-height: 100%;
+    }
+
+    .label-container label {
+        display: flex;
+        align-items: center;
+        padding-right: 0.5rem;
+    }
+
+    .label-container img {
+        height: -webkit-fill-available;
+        padding-right: 2rem;
+    }
+
+    .image-map {
+        grid-row: 4/5;
+        justify-self: center;
+        display: flex;
+        justify-content: center;
+        width: 100%;
+        border-top: 1px solid #00457e;
+        padding: 1;
+    }
+
+    .accident-images {
+        padding: 1rem 1rem 0rem 0rem;
+    }
+
+    .car-damage-map {
+        grid-row: 4/5;
+        display: grid;
+        grid-template-columns: 2fr 2fr;;
+        display: flex;
+        justify-content: center;
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+        width: 100%;
+    }
+
+    #damage-description-box {
+        grid-column: 1/2;
+    }
+
+    #damage-description-svg {
+        grid-column: 2/3;
+        padding-left: 4rem;
+    }
+
+    ::-webkit-scrollbar {
+    width: .5rem;
+    height: .5rem;
+}
+::-webkit-scrollbar-button {
+    display: none;
+}
+::-webkit-scrollbar-thumb {
+    background-color: #00457e;
+    border-radius: 0;
+}
+::-webkit-scrollbar-thumb:hover {
+    background-color: #bfb497;;
+}
+::-webkit-scrollbar-track {
+    background-color: #ECE8DD;
+}
+
+
+    @media print {
+        @page {
+            size: landscape;
+        }
+
+        img {
+            display: none;
+        }
+
+        textarea {
+            border: 1px solid black;
+        }
+
+        carpool-create-carloan-wrapper {
+            width: 277mm;
+            height: 185mm;
+        }
+
+        .carpool-breadcrumb {
+            display: none;
+        }
+
+    }
+</style>
+<link rel="stylesheet" type="text/css" href="{% static 'global.css' %}">
+
+{% endblock %}
+
+{% block body %}
+<div class="carpool-breadcrumb"><a href="{% url 'carpool_home' %}">Domů</a> > Nehody a události</div>
+<div class="carousel" data-carousel>
+<div class="carousel-buttons">
+    <button class="carousel_button carousel-button_previous" data-carousel-button-previous>
+        <img src="/media/carpool/angle-circle-left.svg" alt="">
+    </button>
+    <button class="carousel_button carousel-button_next" data-carousel-button-next>
+        <img src="/media/carpool/angle-circle-right.svg" alt="">
+    </button>
+    </div>
+    <div class="slides" data-carousel-slides-container>
+        {% for open_accident, value in open_accidents.items %}
+        
+        <div class="slide">
+            <div id="form-header">
+                <div>
+                    <div class="label-container">
+                        <img src="/media/carpool/license-plate.png" /><label>SPZ vozidla</label>
+                    </div>
+                    <input type="text" size="8" id="licence-plate" readonly value="{{value.0.7}}">
+                </div>
+                <div>
+                    <div class="label-container">
+                        <img src="/media/carpool/start.png" /><label>Začátek zápůjčky</label>
+                    </div>
+                    <input type="text" id="carloan-start" name="carloan-start" value='{{value.0.0}}' readonly>
+                </div>
+            
+                <div>
+                    <div class="label-container">
+                        <img src="/media/carpool/finish_2.png" /><label>Konec zápůjčky</label>
+                    </div>
+                    <input type="text" id="carloan-end" name="carloan-end" value='{{value.0.1}}' readonly>
+                </div>
+                <div>
+                    <div class="label-container">
+                        <img src="/media/carpool/user-icon.png" /><label>Uživatel carpool</label>
+                    </div>
+                    <input type="text" id="user" name="user" value='{{value.0.3}} {{value.0.4}}' readonly>
+                </div>
+                <div>
+                    <div class="label-container">
+                        <img src="/media/carpool/road.png" /><label>Cílová destinace</label>
+                    </div>
+                    <input type="text" id="destination" name="destination" value='{{value.0.2}}' readonly>
+                </div>
+            
+            </div>
+            <div class="car-damage-map" id="car-damage-map">
+                <div id="damage-description-box" style="padding-left: 1rem" ;>
+                    <div style="margin-bottom: 1rem; text-align: center;">Popis poškození</div>
+                    <form id="{{open_accident}}" style="display: flex; flex-flow: column">
+                    </form>
+                </div>
+                <div>
+                    <svg id="damage-description-svg" width="100%" height="417px" viewBox="0 0 800 566" xmlns="http://www.w3.org/2000/svg">
+                        <image href="/media/carpool/car-exploded.png" height="554" width="800" />
+                        <rect x="8" y="166" width="104" height="224" id="front-bumer{{open_accident}}" name="Přední nárazník"
+                            fill="transparent" />
+                        <rect x="689" y="162" width="101" height="227" id="rear-bumper{{open_accident}}" fill="transparent"
+                            name="Zadní nárazník" />
+                        <polygon points="141,189 131,243 130,312 140,366 280,366 271,326 271,225, 279,188 209,188"
+                            id="engine-cover" fill="transparent" name="Kapota" />
+                        <polygon points="278,189 346,208 343,238 343,326 347,349 280,365 271,330 272,228" id="windshield"
+                            fill="transparent" name="Ćelní sklo" />
+                        <polygon points="348,207 345,231 343,322 349,348 514,348 509,318 508,240 515,210"
+                            id="roof{{open_accident}}" name="Střecha" fill="transparent" />
+                        <polygon points="514,207 616,189 664,189 672,233 671,324 665,367 612,369 518,351 509,324 510,239"
+                            id="trunk{{open_accident}}" fill="transparent" name="Kufr" />
+                        <polygon points="521,216 517,236 517,307 520,339 572,351 597,350 599,205 570,202"
+                            id="rear-window{{open_accident}}" fill="transparent" name="Zadní sklo" />]
+                        <circle cx="217" cy="491" r="36" id="tyre-front-left{{open_accident}}" fill="transparent"
+                            name="Kolo PL" />
+                        <circle cx="549" cy="491" r="36" id="tyre-rear-left{{open_accident}}" fill="transparent"
+                            name="Kolo ZL" />
+                        <circle cx="217" cy="66" r="36" id="tyre-front-right{{open_accident}}" fill="transparent"
+                            name="Kolo PP" />
+                        <circle cx="549" cy="66" r="36" id="tyre-rear-right{{open_accident}}" fill="transparent"
+                            name="Kolo ZP" />
+                        <polygon
+                            points="169,500 137,499 129,481 121,475 121,453 147,451 156,430 139,430 173,417 228,411 279,405 273,450 283,498 264,498 249,457 215,447 190,455 178,471"
+                            id="front-left{{open_accident}}" fill="transparent" name="Předek vlevo" />
+                        <polygon
+                            points="137,56 131,74 117,82 122,100 149,102 154,120 137,124 183,140 254,146 281,151 273,116 277,72 281,55 262,55 254,86 229,104 196,103 173,76 168,56"
+                            id="front-right{{open_accident}}" fill="transparent" name="Předek vpravo" />
+                        <polygon points="290,408 360,365 410,361 406,409" id="window-front-left{{open_accident}}"
+                            fill="transparent" name="Sklo u řidiče" />
+                        <polygon points="290,147 408,149 412,193 359,190" id="window-front-right{{open_accident}}"
+                            fill="transparent" name="Sklo u spolujezdce" />
+                        <polygon points="425,361 421,408 521,406 507,384 482,364" id="window-rear-left{{open_accident}}"
+                            fill="transparent" name="Sklo za řidičem" />
+                        <polygon points="423,149 425,193 488,192 521,147" id="window-rear-right{{open_accident}}"
+                            fill="transparent" name="Sklo za spolujezdcem" />
+                        <polygon points="504,190 544,147 601,147 550,177" id="window-trunk-right{{open_accident}}"
+                            fill="transparent" name="Sklo zadní vpravo" />
+                        <polygon points="504,366 544,407 601,408 550,381" id="window-trunk-left{{open_accident}}"
+                            fill="transparent" name="Sklo zadní vlevo" />
+                        <polygon points="280,407 416,405 410,446 418,498 283,498 271,452" id="door-front-left{{open_accident}}"
+                            fill="transparent" name="Dveře levé přední" />
+                        <polygon points="416,407 531,408 543,428 527,444 507,456 490,499 419,496 414,450"
+                            id="door-rear-left{{open_accident}}" fill="transparent" name="Dveře levé zadní" />
+                        <polygon points="281,57 418,58 413,103 417,149 278,148 273,105" id="door-front-right{{open_accident}}"
+                            name="Dveře pravé přední" fill="transparent" />
+                        <polygon points="418,54 415,99 417,146 533,147 542,122 515,101 491,56"
+                            id="door-rear-right{{open_accident}}" name="Dveře pravé zadní" fill="transparent" />
+                        <polygon
+                            points="494,496 510,456 540,435 534,408 643,410 663,419 663,428 650,427 646,449 664,455 667,477 658,483 649,498 598,499 582,468 562,452 532,452 515,471 506,499"
+                            id="trunk-left{{open_accident}}" fill="transparent" name="Zadek vlevo" />
+                        <polygon
+                            points="536,147 647,144 662,125 650,127 645,102 667,98 664,75 656,73 650,57 596,57 583,90 554,107 528,101 501,56 491,57 503,86 524,110 544,122"
+                            id="trunk-right{{open_accident}}" fill="transparent" name="Zadek vpravo" />
+                    </svg>
+                </div>
+            </div>
+            <div class="carpool-show-accidents-imgs">
+                <div class="image-map" id="image-map">
+                    {% for png in value.2 %}
+                    <div class="accident-images">
+                        <img src="/media/carpool/accident_images/{{png}}" width="100%" height="100%">
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+            {% endfor %}
+    </div>    
+   
+
+<script>
+    function modulo(number, mod) {
+        let result = number % mod;
+        if (result < 0) {
+            result += mod;
+        }
+        return result;
+    }
+
+    function setUpCarousel(carousel) {
+    function handlePrevious() {
+        currentSlide = modulo(currentSlide - 1, numSlides);
+        changeSlide(currentSlide);
+    }
+
+    function handleNext () {
+        currentSlide = modulo(currentSlide + 1, numSlides);
+        changeSlide(currentSlide);
+    }
+
+    function changeSlide(slideNumber) {
+        carousel.style.setProperty("--current-slide", slideNumber);
+    }
+
+    const buttonPrevious = document.querySelector("[data-carousel-button-previous]");
+    const buttonNext = document.querySelector("[data-carousel-button-next]");
+    const slidesContainer = document.querySelector ("[data-carousel-slides-container]");
+
+
+    let currentSlide = 0;
+    const numSlides = slidesContainer.children.length;
+
+    buttonPrevious.addEventListener("click", handlePrevious);
+    buttonNext.addEventListener("click", handleNext);
+}
+
+    const carousels = document.querySelectorAll("[data-carousel]");
+    carousels.forEach(setUpCarousel);
+
+</script>
+
+<script>
+    const damageForm = document.getElementById('damage-description-form')
+    var open_accidents = {{open_accidents|safe}}
+    for (var [key, value] of Object.entries(open_accidents)){
+        accident_key = key
+        damage_reports=value[1]
+        for (var [key, value] of Object.entries(damage_reports)) {
+            part_damaged = value['part_damaged']
+            e = document.getElementById(part_damaged+accident_key)
+            e.setAttribute('fill', 'rgba(255,0,0,0.5)')
+            damage_description_form = document.getElementById(accident_key)
+            let container = document.createElement('div');
+            let label = document.createElement('label');
+            label.textContent = e.getAttributeNS(null, 'name')
+            container.classList.add('damageDescription')
+            let textArea = document.createElement('textarea');
+            textArea.value = value['description'];
+            textArea.style.width = '100%';
+            textArea.style.marginBottom = '1rem';
+            textArea.readOnly = true;
+            container.append(label);
+            container.append(textArea);
+            damage_description_form.append(container);
+        }
+    }
+
+</script>
+
+{% endblock %}

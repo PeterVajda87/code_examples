@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VG | Manometr</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        @font-face {
+            font-family: 'Noto Sans';
+            src: url('/media/fonts/NotoSans-Light.ttf');
+        }
+
+        @font-face {
+            font-family: 'Noto Sans';
+            font-weight: bold;
+            src: url('/media/fonts/NotoSans-Regular.ttf');
+        }
+
+        .wrapper {
+            width: clamp(800px, 80%, 1600px);
+            height: 100%;
+            font-size: x-large;
+            background-color: rgba(0,125,125, 0.05);
+            height: 100vh;
+            margin: 0 auto;
+            display: flex;
+            flex-flow: column;
+            font-family: 'Noto Sans';
+            padding: 2.5% 5%;
+            row-gap: 1vh;
+        }
+
+        input {
+            font-family: 'Noto Sans';
+            font-size: larger;
+        }
+
+        label {
+            display: flex;
+            flex-flow: row;
+            justify-content: space-between;
+        }
+
+        .width-40 {
+            width: 40%;
+            min-width: 300px;
+        }
+
+        input,
+        select { 
+            font-size: x-large;
+        }
+
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            display: none;
+        }
+
+        input[name="actual-temp"],
+        input[name="operator"],
+        input[name="beginning-temperature"],
+        input[name="beginning-pressure"],
+        input[name="end-temperature"],
+        input[name="end-pressure"] {
+            width: 5vw;
+            text-align: center;
+
+        }
+
+        input[name="operator"] {
+            width: 7.5vw;
+        }
+
+        input[name="order"],
+        input[name="material-number"],
+        select {
+            width: 10vw;
+            text-align: right;
+        }
+
+        .top-padding {
+            padding-top: 4vh;
+        }
+
+        .test {
+            display: flex;
+            flex-flow: row;
+            height: 40%;
+            width: 100%;
+            column-gap: 5vw;
+        }
+
+        .test > div {
+            display: flex;
+            flex-flow: column;
+            flex-wrap: nowrap;
+            flex-grow: 1;
+            flex-shrink: 1;
+            flex-basis: 0;
+            row-gap: 1vh;
+            max-width: 33%;
+            justify-content: center;
+            padding: 10px;
+        }
+
+        .test-result > div {
+            display: flex;
+            flex-flow: row;
+            column-gap: 5vw;
+        }
+
+        .test-result > div > input:first-of-type {
+            width: 5vw;
+        }
+
+        .test-result > div > input:nth-of-type(2) {
+            width: 4vw;
+        }
+
+        p {
+            font-weight: bold;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .active {
+            border: 1px dashed black;
+            background-color: lightblue;
+        }
+
+        #status-message {
+            display: none;
+        }
+
+        .rework select {
+            width: 80%;
+            text-align: left;
+        }
+
+        .status-message,
+        .confirmation-message {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .ok,
+        .nok {
+            width: 2vw;
+            height: 2vw;
+            display: inline-block;
+            border-radius: 50%;
+            background-color: lightgreen;
+            margin-left: 2vw;
+        }
+
+        .nok {
+            background-color: red;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .no-button {
+            background-color: red; 
+            color: white; 
+            cursor: pointer;
+        }
+
+        .yes-button {
+            background-color: lightgreen;
+            color: white;
+            cursor: pointer;
+        }
+        
+        .no-button:focus,
+        .yes-button:focus,
+        #reset-button:focus {
+            outline: 5px solid blue;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <div class="status-message">
+            Stav připojení k DB: <span class="ok"></span>
+        </div>
+
+        <div class="confirmation-message hidden">
+            ✓ Stav manometru byl úspěšně nahrán.
+        </div>
+
+        <div>
+            <label for="actual-temp" class="width-40 top-padding">Aktuální teplota (°C)
+                <input type="number" data-general name="actual-temp" id="actual-temp" step="0.1" autofocus="true">
+            </label>
+        </div>
+        <div>
+            <label for="operator" class="width-40">Obsluha (OČ)
+                <input type="number" data-general name="operator" id="operator">
+            </label>
+        </div>
+
+        <div class="top-padding">
+            <label for="order" class="width-40">Zakázka
+                <input type="text" data-general name="order" id="order" maxlength="8" autocomplete="on">
+            </label>
+        </div> 
+        <div>
+            <label for="material-number" class="width-40">Číslo dílu
+                <input type="text" data-general name="material-number" id="material-number" maxlength="16" autocomplete="on">
+            </label>
+        </div>
+
+        <div class="top-padding" style="display: flex; flex-flow: row; column-gap: 5vw">
+            <label for="manometer" class="width-40">Manometr
+                <select name="manometer" id="manometer-select" onchange="processManometerChange(this)" onfocus="manometerFocused()">
+                    <option value="" selected></option>
+                </select>
+
+            </label>
+            <input type="button" value="Reset" style="width: 200px" id="reset-button" onclick="resetClicked()">
+        </div>
+
+        <div class="test top-padding" id="test-container">
+            <div class="test-beginning">
+                <p>Začátek testu</p>
+                <label for="beginning-temperature">Teplota
+                    <input type="number" name="beginning-temperature" id="beginning-temperature" step="0.1">
+                </label>
+                <label for="beginning-time">Čas
+                    <input type="datetime-local" name="beginning-time" id="beginning-time" readonly>
+                </label>
+                <label for="beginning-pressure">Tlak
+                    <input type="number" name="beginning-pressure" id="beginning-pressure" step="0.1" min="13" max="15">
+                </label>
+            </div>
+            <div class="test-end">
+                <p>Konec testu</p>
+                <label for="end-temperature">Teplota
+                    <input type="number" name="end-temperature" id="end-temperature" step="0.1">
+                </label>
+                <label for="end-time">Čas
+                    <input type="datetime-local" name="end-time" id="end-time" readonly>
+                </label>
+                <label for="end-pressure">Tlak
+                    <input type="number" name="end-pressure" id="end-pressure" step="0.1">
+                </label>
+            </div>
+            <div class="test-result">
+                <p>Výsledek</p>
+                <div class="result-temperature-wrapper">
+                    <input type="number" name="result-temperature-difference" id="result-temperature-difference">
+                    <input type="text" name="result-temperature" id="result-temperature">
+                </div>
+                <div class="result-duration-wrapper">
+                    <input type="text" name="result-duration-difference" id="result-duration-difference">
+                    <input type="text" name="result-duration" id="result-duration">
+                </div>
+                <div class="result-pressure-wrapper">
+                    <input type="number" name="result-pressure-difference" id="result-pressure-difference">
+                    <input type="text" name="result-pressure" id="result-pressure">
+                </div>
+            </div>
+        </div>
+
+        <div class="top-padding" id="status-message"></div>
+
+        <div class="rework">
+            <label for="rework-select">Rework
+                <select name="rework-select" id="rework-select" disabled>
+                    <option value="" selected></option>
+                    <option value="Vycištení a preskládání komínku">Vyčištění a přeskládání komínku</option>
+                    <option value="Opakovaný test (nefunkcní manometr)">Opakovaný test (nefunkční manometr)</option>
+                    <option value="Opakovaný test (nové tesnení manometru)">Opakovaný test (nové těsnění manometru)</option>
+                    <option value="Výmena komínku + manometru po 6 hod.">Výměna komínku + manometru po 6 hod.</option>
+                    <option value="Výmena komínku + manometru po 12 hod.">Výměna komínku + manometru po 12 hod.</option>
+                    <option value="Ukonceno po 6 hod. nový manometr">Ukončeno po 6 hod. nový manometr</option>
+                </select>
+            </label>
+        </div>
+    </div>
+<script>
+    const url = "{% url 'vg:get_manometer_records' %}";
+    const databaseHealthCheckUrl = "{% url 'vg:database_health_check' %}";
+    const submitTestBeginningUrl = "{% url 'vg:submit_test_beginning'%}";
+    const submitTestEndUrl = "{% url 'vg:submit_test_end'%}";
+    const manometerSelect = document.getElementById('manometer-select');
+    const limits = {{limits|safe}};
+    const manometers = [49249, 49620, 49645, 49384, 49374, 48759, 49373, 48810, 49131, 49137, 49379, 49276, 49410, 49593, 49654, 48804, 48792, 49421, 49306, 49184, 49272, 49606, 48798, 49300, 49404, 49182, 49290, 49278, 49281, 49397, 48808, 49245, 49609, 49364, 49412, 49125, 49242, 49129, 49251, 49425, 49396, 49289, 48769, 48785, 49154, 49359, 48787, 49166, 49254, 48797, 49633, 49598, 49180, 49612, 49134, 49634, 49234, 49257, 48766, 49261, 49188, 49139, 49198, 49398, 48789, 49235, 48803, 49275, 49614, 49369, 48782, 49176, 49171, 49648, 49400, 49603, 49183, 49168, 49390, 49153, 49197, 49155, 49309, 49378, 49366, 49401, 49243, 49156, 49195, 48800, 49230, 49588, 49165, 49179, 49368, 49632, 49303, 49231, 49294, 49415, 49240, 49310, 49393, 48761, 48763, 49372, 49199, 49312, 49419, 49164, 49130, 48780, 48770, 48760, 49292, 49418, 48773, 49380, 48788, 49284, 49132, 49409, 48775, 48778, 49389, 49422, 49269, 49405, 49141, 49362, 49151, 49605, 49296, 49286, 49407, 49239, 49157, 48794, 49411, 49162, 49377, 49280, 49367, 49616, 49615, 48776, 49360, 49270, 49630, 49126, 49189, 48762, 49236, 48801, 48779, 48772, 49301, 49382, 49268, 49384, 49356, 49228, 49288, 48774, 48790, 48765, 49406, 49170, 49388, 49178, 49416, 49600, 48768, 48767, 49233, 48783, 49241, 49262, 49370, 49420, 49399, 49140, 49259, 49596, 48777, 48786, 49285, 49260, 49167, 48809, 49238, 49408, 49395, 49266, 49244, 49172, 49641, 49607, 48771, 49414, 49282, 49229, 49232, 49291, 49185, 49181, 49148, 49247, 49173, 49138, 49273, 49617, 49365, 49190, 49152, 49159, 49191, 49386, 49376, 49363, 49587, 49639, 49594, 49647, 49177, 48117, 49277, 49194, 49135, 49592, 49627, 49599, 49626, 49413, 49264, 49263, 49253, 49246, 49638, 48811, 49643, 49136, 49311, 49158, 48116, 49653, 48118, 49361, 49629, 49308, 49655, 49298, 49256, 49426, 49265, 49128, 49150, 49305, 49628, 49642, 49133, 49387, 48807, 49637, 49417, 49196, 49371, 49297, 49149, 49237, 49631, 49597, 49161, 49127, 49124, 49649, 49287, 49175, 49613, 49650, 49375, 49163, 48806, 49267, 49625, 49279, 49357, 48115, 49590, 48119, 49252, 49186, 49274, 49147, 49595, 49619, 49283, 49652, 49258, 49160, 49255, 49635, 49610, 49618, 49293, 49657, 49394, 49402, 49182, 55220, 48793, 49302, 49591, 49640, 49307, 49424, 49658, 49385, 49601, 49289, 49403, 49193, 49651, 48805, 49424, 49383, 48791, 48793, 55758, 49302, 49307, 49248, 48802, 49646, 49385, 49601, 49358, 49391, 49658, 49250, 49640, 49622, 49591, 48784, 49271, 49201, 49299, 49304, 48795, 49624, 49187, 49611, 49174, 49427, 49630, 49602, 49636, 48796, 49644]
+    const beginningPressure = document.getElementById('beginning-pressure')
+    const endPressure = document.getElementById('end-pressure')
+
+    window.addEventListener('DOMContentLoaded', () => {
+        manometers.forEach(manometerId => {
+            manometerOption = new Option(manometerId, manometerId);
+            manometerSelect.append(manometerOption);
+        })
+
+        document.querySelector('div#test-container').querySelectorAll('input').forEach(testInput => {
+            testInput.disabled = true;
+        })
+
+        document.querySelectorAll('input[data-general]').forEach(inputField => {
+            inputField.addEventListener("keydown", (e) => {
+                if (e.keyCode === 13) {
+                    let inputIndex = Array.from(document.querySelectorAll('input[data-general]')).indexOf(e.target)
+
+                    if (inputIndex < 3) {
+                        let fieldValidationResults = validateField(e.target);
+                        if (fieldValidationResults['result'] == true) {
+                            Array.from(document.querySelectorAll('input[data-general]'))[inputIndex + 1].focus();
+                        } else {
+                            showErrorMessage(e.target, fieldValidationResults['error']);
+                        }
+                    } else {
+                        document.getElementById('manometer-select').focus();   
+                    }
+                }
+            })
+        })
+
+        beginningPressure.addEventListener("keydown", (e) => {
+            if (e.keyCode === 13 && e.target.value !== "") {
+                if (parseFloat(e.target.value) >= limits['MIN_PRESSURE'] && parseFloat(e.target.value) <= limits['MAX_PRESSURE']) {
+                    submitTestBeginning();
+                    document.getElementById('manometer-select').value = "";
+                    processManometerChange(document.getElementById('manometer-select'));
+                    document.getElementById('manometer-select').focus();
+                } else {
+                    window.alert(`Tlak musí být v rozmezí ${limits['MIN_PRESSURE']} až ${limits['MAX_PRESSURE']}`)
+                }
+            }
+        })
+
+        endPressure.addEventListener("keydown", async (e) => {
+            if (e.keyCode === 13 && e.target.value !== "") {
+                submitTestEnd();
+            }
+        })
+
+        databaseHealthCheck();
+    })
+
+    function validateField(field) {
+        switch (field.name) {
+            case 'actual-temp':
+                if (field.value >= 18 && field.value <= 35) {
+                    if (document.getElementById('error-actual-temp')) {
+                        document.getElementById('error-actual-temp').remove();
+                    }
+                    return {'result': true};
+                } else {
+                    return {'result': false, 'error': "Teplota mimo povoleného rozsahu (18 - 35)"}
+                }
+                break;
+            
+            case 'operator':
+                if (field.value != "") {
+                    if (document.getElementById('error-operator')) {
+                        document.getElementById('error-operator').remove();
+                    }
+                    return {'result': true};
+                } else {
+                    return {'result': false, 'error': "Chybí číslo operátora"}
+                }
+                break;
+
+            case 'order':
+                if (field.value != "") {
+                    if (document.getElementById('error-order')) {
+                        document.getElementById('error-order').remove();
+                    }
+                    return { 'result': true };
+                } else {
+                    return { 'result': false, 'error': "Chybí číslo zakázky" }
+                }
+                break;
+
+            case 'material-number':
+                if (field.value != "") {
+                    if (document.getElementById('error-material-number')) {
+                        document.getElementById('error-material-number').remove();
+                    }
+                    return { 'result': true };
+                } else {
+                    return { 'result': false, 'error': "Chybí číslo materiálu" }
+                }
+                break;
+
+        }
+
+    }
+
+    function showErrorMessage(field, errorMessage) {
+        if (!(document.getElementById(`error-${field.id}`))) {
+            let errorMessageContainer = document.createElement('div');
+            errorMessageContainer.id = `error-${field.id}`;
+            errorMessageContainer.textContent = errorMessage;
+            errorMessageContainer.style = "position: absolute; padding-left: 1vw"
+            errorMessageContainer.style.top = `${field.getBoundingClientRect().top}px`;
+            errorMessageContainer.style.left = `${field.getBoundingClientRect().right}px`;
+            field.parentElement.append(errorMessageContainer);
+        }
+    }
+
+    function manometerFocused(e) {
+        if (document.getElementById('actual-temp').value == "") {
+            window.alert('Zadej aktuální teplotu');
+            document.getElementById('actual-temp').focus();
+            return false;
+        }
+        
+        if (document.getElementById('operator').value == "") {
+            window.alert('Zadej osobní číslo obsluhy');
+            document.getElementById('operator').focus();
+            return false
+        }
+
+        if (document.getElementById('order').value == "") {
+            window.alert('Zadej číslo zakázky');
+            document.getElementById('order').focus();
+            return false
+        }
+
+        if (document.getElementById('material-number').value == "") {
+            window.alert('Zadej označení materiálu');
+            document.getElementById('material-number').focus();
+            return false
+        }
+
+        return true;
+    }
+
+    function processManometerChange(manometerField) {
+        databaseHealthCheck();
+        document.querySelector('div.test-result').querySelectorAll('input').forEach(resultInput => {
+            resultInput.style.backgroundColor = '';
+            resultInput.disabled = true;
+        })
+        document.getElementById('rework-select').disabled = true;
+        document.getElementById('rework-select').value = "";
+        getManometerRecords(manometerField.value);
+    }
+
+    async function getManometerRecords(manometer) {
+        document.querySelectorAll('div[class*=active]').forEach(activeDiv => {
+            activeDiv.classList.remove('active');
+        })
+
+        document.getElementById('test-container').querySelectorAll('input').forEach(inp => {
+            inp.value = "";
+            inp.disabled = true;
+        })
+        
+        document.getElementById('status-message').innerHTML = "";
+
+        if (manometer == "") {
+            document.getElementById('test-container').querySelectorAll('input').forEach(inp => {
+                inp.disabled = true;
+            })
+
+            return false;
+        }
+
+        let order = document.querySelector('input[name="order"]').value;
+        const resp = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 'manometer_id': manometer, 'order': order })
+        })
+
+        response = await resp.json();
+
+        response = response['records'][0]
+
+        if (!(response)) {
+            testStart();
+            return false;
+        }
+
+        let lastEntryTable = document.createElement('table');
+        let tableHeading = document.createElement('thead');
+        let tableBody = document.createElement('tbody');
+
+        lastEntryTable.append(tableHeading, tableBody);
+
+        let tableHeadingRow = document.createElement('tr');
+        tableHeading.append(tableHeadingRow);
+
+        let tableHeadings = ['Zakázka', 'Čas tlakování', 'Tlak na začátku', 'Konec tlakování', 'Tlak na konci'];
+
+        tableHeadings.forEach(th => {
+            let tableHeadingCell = document.createElement('th');
+            tableHeadingCell.textContent = th;
+            tableHeadingRow.append(tableHeadingCell);
+        })
+
+        let lastEntryRow = document.createElement('tr');
+        tableBody.append(lastEntryRow);
+
+        let lastEntryValues = [response['order'], new Date(response['pressurization_time']).toLocaleString(), parseFloat(response['initial_pressure'].replace(".", ",")), new Date(response['depressurization_time']).toLocaleString(), response['final_pressure']];
+
+        lastEntryValues.forEach(td => {
+            let entryValue = document.createElement('td');
+            entryValue.textContent = td;
+            lastEntryRow.append(entryValue);
+        });
+
+        document.getElementById('status-message').append(lastEntryTable);
+
+        lastEntryTable.dataset.record = response['record'];
+
+        if (parseInt(response['final_pressure']) != 999 && response['final_pressure'] != null) 
+        { testStart(response) } else { testFinish(response) };
+    }
+
+    function getReferencePressure(pressure, temperature) {
+        return parseFloat(pressure) * 293.15 / (273.15 + parseFloat(temperature))
+    }
+
+    function testStart() {
+        document.querySelector('div.test-beginning').querySelectorAll('input').forEach(testInput => {
+            testInput.disabled = false;
+        });
+
+        document.querySelector('div.test-result').querySelectorAll('input').forEach(resultInput => {
+            resultInput.style.backgroundColor = 'white';
+            resultInput.disabled = true;
+        })
+        document.getElementById('beginning-temperature').value = document.getElementById('actual-temp').value;
+        document.getElementById('beginning-temperature').readOnly = true;
+        document.querySelector('div.test-beginning').classList.add("active");
+
+        let beginningTime = new Date();
+        beginningTime.setMinutes(beginningTime.getMinutes() - beginningTime.getTimezoneOffset());
+        document.getElementById('beginning-time').value = beginningTime.toISOString().slice(0, 16);
+        document.getElementById('beginning-time').readOnly = true;
+        beginningPressure.focus();
+        document.getElementById('rework-select').disabled = false;
+
+    }
+    
+    function testFinish(response) {
+        console.log(response)
+        document.getElementById('rework-select').disabled = true;
+        document.getElementById('rework-select').value = response['rework_description'];
+        
+        document.querySelector('div.test-beginning').querySelectorAll('input').forEach(testInput => {
+            testInput.disabled = true;
+            document.getElementById('beginning-temperature').value = response['pressurization_temperature'];
+            document.getElementById('beginning-time').value = response['pressurization_time'];
+            beginningPressure.value = response['initial_pressure'];
+        });
+        document.querySelector('div.test-end').querySelectorAll('input').forEach(testInput => {
+            testInput.disabled = false;
+        });
+        document.getElementById('end-temperature').value = document.getElementById('actual-temp').value;
+        document.getElementById('end-temperature').readOnly = true;
+        document.querySelector('div.test-end').classList.add("active");
+        let endTime = new Date();
+        endTime.setMinutes(endTime.getMinutes() - endTime.getTimezoneOffset());
+        document.getElementById('end-time').value = endTime.toISOString().slice(0, 16);
+        endPressure.focus();
+    }
+
+    async function submitTestEnd() {
+        let order = document.getElementById('order').value;
+        let operator = document.getElementById('operator').value;
+        let depressurizationTime = document.getElementById('end-time').value;
+        let depressurizationTemperature = document.getElementById('end-temperature').value;
+        let finalPressure = endPressure.value;
+        let temperatureDifference = parseFloat(depressurizationTemperature) - parseFloat(document.getElementById('beginning-temperature').value);
+        let manometerId = document.getElementById('manometer-select').value;
+        let finalReferencePressure = getReferencePressure(finalPressure, depressurizationTemperature);
+        let pressureDrop = parseFloat(finalPressure) - parseFloat(beginningPressure.value);
+        let referencePressureDrop = getReferencePressure(pressureDrop, depressurizationTemperature);
+        let testDuration = parseInt((new Date(depressurizationTime) - new Date(document.getElementById('beginning-time').value)) / 60_000);
+
+        // TEPLOTNI ROZDIL
+        document.getElementById('result-temperature-difference').disabled = false;
+        document.getElementById('result-temperature-difference').style.backgroundColor = Math.abs(temperatureDifference) < limits['MAX_TEMP_DIFF'] ? "lightgreen" : "red";
+        document.getElementById('result-temperature-difference').readOnly = true;
+        document.getElementById('result-temperature-difference').value = Math.abs(temperatureDifference).toFixed(2);
+
+        document.getElementById('result-temperature').disabled = false;
+        document.getElementById('result-temperature').readOnly = true;
+        document.getElementById('result-temperature').value = Math.abs(temperatureDifference) <= limits['MAX_TEMP_DIFF'] ? "OK" : "NOK";
+        document.getElementById('result-temperature').style.backgroundColor = temperatureDifference <= limits['MAX_TEMP_DIFF'] ? "lightgreen" : "red";
+
+        // TRVANI TESTU
+        document.getElementById('result-duration-difference').disabled = false;
+        document.getElementById('result-duration-difference').style.backgroundColor = testDuration >= 720 ? "lightgreen" : "red";
+        document.getElementById('result-duration-difference').readOnly = true;
+        document.getElementById('result-duration-difference').value = `${Math.floor(testDuration / 60)}:${parseInt(testDuration % 60)}`;
+
+        document.getElementById('result-duration').disabled = false;
+        document.getElementById('result-duration').readOnly = true;
+        document.getElementById('result-duration').value = testDuration >= 720 ? "OK" : "NOK";
+        document.getElementById('result-duration').style.backgroundColor = testDuration >= 720 ? "lightgreen" : "red";
+
+        // TLAKOVY POKLES
+        document.getElementById('result-pressure-difference').disabled = false;
+        document.getElementById('result-pressure-difference').style.backgroundColor = (Math.abs(pressureDrop) <= limits['MAX_PRESSURE_DROP']) && (endPressure.value < beginningPressure.value) ? "lightgreen" : "red";
+        document.getElementById('result-pressure-difference').readOnly = true;
+        document.getElementById('result-pressure-difference').value = Math.abs(pressureDrop).toFixed(2);
+
+        document.getElementById('result-pressure').disabled = false;
+        document.getElementById('result-pressure').readOnly = true;
+        document.getElementById('result-pressure').value = (Math.abs(pressureDrop) <= limits['MAX_PRESSURE_DROP']) && (endPressure.value < beginningPressure.value) ? "OK" : "NOK";
+        document.getElementById('result-pressure').style.backgroundColor = (Math.abs(pressureDrop) <= limits['MAX_PRESSURE_DROP']) && (endPressure.value < beginningPressure.value) ? "lightgreen" : "red";
+
+        var result = 0;
+
+        if (testDuration <= 720) {
+            result = 1;
+        }
+
+        if (Math.abs(temperatureDifference) > limits['MAX_TEMP_DIFF']) {
+            result = 2;
+        }
+
+        if ((Math.abs(pressureDrop) > limits['MAX_PRESSURE_DROP']) || (endPressure.value >= beginningPressure.value)) {
+            result = 4;
+        }
+
+
+        if (result > 0) {
+            showModalConfirmation();
+        } else {
+            sendTestResults().then(() => {
+                document.getElementById('manometer-select').value = "";
+                processManometerChange(document.getElementById('manometer-select'));
+                document.getElementById('manometer-select').focus();
+            })
+        }
+
+        return true
+    }
+
+    function showModalConfirmation() {
+        if (document.getElementById('modal-window')) {
+            document.getElementById('modal-window').remove();
+        }
+        document.getElementById('end-pressure').blur();
+        let modalWindow = document.createElement('div');
+        modalWindow.id = "modal-window";
+        modalWindow.style = "position: absolute; left: 0; top: 0; height: 100%; width: 100%;";
+        document.body.append(modalWindow);
+
+        let modalContent = document.createElement('div');
+        modalContent.style = "width: 40%; height: 20%; margin: 15vh 45vw; background-color: white; border: 1px solid black; display: flex; flex-flow: column; justify-content: center; align-items: center"
+        modalWindow.append(modalContent);
+
+        let heading = document.createElement('h2');
+        heading.style.fontFamily = 'Noto Sans';
+        heading.textContent = "Výsledek NOK. Chcete přesto odeslat?";
+        modalContent.append(heading);
+
+        let choicesBox = document.createElement('div');
+        choicesBox.style = "display: flex; flex-flow: row; justify-content: space-between; width: 100%; padding: 0 5%;"
+        let choiceYes = document.createElement('input');
+        choiceYes.type = "submit";
+        choiceYes.classList.add('yes-button');
+        choiceYes.value = "Odeslat";
+
+        choiceYes.addEventListener("keydown", (e) => {
+            if (e.keyCode === 13) {
+                sendTestResults();
+                document.getElementById('modal-window').remove();
+                document.getElementById('manometer-select').value = "";
+                processManometerChange(document.getElementById('manometer-select'));
+                document.getElementById('manometer-select').focus();
+            } 
+
+            if (e.keyCode === 39 || e.keyCode === 37) {
+                document.querySelector('.no-button').focus();
+            }
+        })
+
+        let choiceNo = document.createElement('input');
+        choiceNo.type = "button";
+        choiceNo.classList.add('no-button')
+        choiceNo.value = "Neodesílat";
+        choiceNo.addEventListener('click', () => {
+            document.getElementById('modal-window').remove();
+            document.getElementById('reset-button').focus();
+        })
+
+        choiceNo.addEventListener('keydown', (e) => {
+            if (e.keyCode === 9) {
+                e.preventDefault();
+                document.querySelector('.yes-button').focus();
+            }
+
+            if (e.keyCode === 39 || e.keyCode === 37) {
+                document.querySelector('.yes-button').focus();
+            }
+        })
+    
+        choicesBox.append(choiceYes, choiceNo);
+        modalContent.append(choicesBox);
+        choiceYes.focus();
+    }
+
+    async function sendTestResults() {
+        let order = document.getElementById('order').value;
+        let operator = document.getElementById('operator').value;
+        let depressurizationTime = document.getElementById('end-time').value;
+        let depressurizationTemperature = document.getElementById('end-temperature').value;
+        let finalPressure = endPressure.value;
+        let temperatureDifference = parseFloat(depressurizationTemperature) - parseFloat(document.getElementById('beginning-temperature').value);
+        let manometerId = document.getElementById('manometer-select').value;
+        let finalReferencePressure = getReferencePressure(finalPressure, depressurizationTemperature);
+        let pressureDrop = parseFloat(finalPressure) - parseFloat(beginningPressure.value);
+        let referencePressureDrop = getReferencePressure(pressureDrop, depressurizationTemperature);
+        let testDuration = parseInt((new Date(depressurizationTime) - new Date(document.getElementById('beginning-time').value)) / 60_000);
+
+        var result = 0;
+
+        if (testDuration <= 720) {
+            result = 1;
+        }
+
+        if (Math.abs(temperatureDifference) >= limits['MAX_TEMP_DIFF']) {
+            result = 2;
+        }
+
+        if ((Math.abs(pressureDrop) > limits['MAX_PRESSURE_DROP']) || (endPressure.value >= beginningPressure.value)) {
+            result = 4;
+        }
+
+        const resp = await fetch(submitTestEndUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                'record': document.querySelector('table').dataset.record,
+                'order': order,
+                'depressurization_time': depressurizationTime,
+                'depressurization_temperature': depressurizationTemperature,
+                'final_pressure': finalPressure,
+                'manometer_id': manometerId,
+                'final_reference_pressure': finalReferencePressure,
+                'temperature_difference': temperatureDifference,
+                'pressure_drop': pressureDrop,
+                'reference_pressure_drop': referencePressureDrop,
+                'test_duration': testDuration,
+                'result': result,
+                'operator': operator,
+                'rework': document.getElementById('rework-select').value,
+            })
+
+        })
+
+        let response = await resp.json();
+
+        if (response['status'] == 'okay') {
+            showConfirmation()
+        }
+    }
+
+    async function submitTestBeginning() {
+        let order = document.getElementById('order').value;
+        let materialNumber = document.getElementById('material-number').value;
+        let operator = document.getElementById('operator').value;
+        let pressurizationTime = document.getElementById('beginning-time').value;
+        let pressurizationTemperature = document.getElementById('beginning-temperature').value;
+        let initialPressure = beginningPressure.value;
+        let manometerId = document.getElementById('manometer-select').value;
+        let initialReferencePressure = getReferencePressure(initialPressure, pressurizationTemperature);
+        let rework = document.getElementById('rework-select').value == "" ? 0 : 1;
+        let reworkDescription = document.getElementById('rework-select').value;
+
+        const resp = await fetch(submitTestBeginningUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                'order': order,
+                'pressurization_time': pressurizationTime,
+                'material_number': materialNumber,
+                'pressurization_temperature': pressurizationTemperature,
+                'initial_pressure': initialPressure,
+                'initial_reference_pressure': initialReferencePressure,
+                'operator': operator,
+                'manometer_id': manometerId,
+                'rework': rework,
+                'rework_description': reworkDescription,
+            })
+        })
+
+        let jsonResponse = await resp.json();
+
+        if (jsonResponse['status'] == 'okay') {
+            showConfirmation();
+        }
+
+        return true
+    }
+
+    function resetClicked() {
+        document.getElementById('manometer-select').value = "";
+        processManometerChange(document.getElementById('manometer-select'));
+        document.getElementById('manometer-select').focus();
+    }
+
+    async function databaseHealthCheck() {
+        const resp = await fetch(databaseHealthCheckUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 'testing': true })
+        })
+
+        let respJson = await resp.json();
+
+        if (respJson['result'] == 'online') {
+            document.querySelector('.status-message').querySelector('span').classList.remove("nok");
+            document.querySelector('.status-message').querySelector('span').classList.add("ok");
+        } else {
+            document.querySelector('.status-message').querySelector('span').classList.add("nok");
+            document.querySelector('.status-message').querySelector('span').classList.remove("ok");
+        }
+    }
+
+    async function showConfirmation() {
+        document.querySelector('.status-message').classList.toggle('hidden');
+        document.querySelector('.confirmation-message').classList.toggle('hidden');
+        await new Promise(r => setTimeout(r, 1500));
+        document.querySelector('.confirmation-message').classList.toggle('hidden');
+        document.querySelector('.status-message').classList.toggle('hidden');
+    }
+
+    document.getElementById('reset-button').addEventListener('keydown', (e) => {
+        if (e.keyCode === 13) {
+            document.getElementById('manometer-select').value = "";
+            processManometerChange(document.getElementById('manometer-select'));
+            document.getElementById('manometer-select').focus();
+        }
+    })
+
+    document.getElementById('rework-select').addEventListener('keydown', (e) =>{
+        if (e.keyCode === 13) {
+            e.preventDefault();
+            submitTestBeginning();
+            document.getElementById('manometer-select').value = "";
+            processManometerChange(document.getElementById('manometer-select'));
+            document.getElementById('manometer-select').focus();
+        }
+    })
+
+</script>
+</body>
+</html>

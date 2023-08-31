@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <title></title>
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        {% load static %}
+        <link href="{% static 'changeover/style.css' %}" rel="stylesheet" type="text/css"></link>
+
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.js"></script>
+        </head>
+    <body>
+    <!-- ======================================== form ====================================== -->
+        <div id="header">
+            <form method="POST" name="header_form">{% csrf_token %}
+                <div id="items_from_form">
+                    
+                    <div id="machine_select_div" class="form_item_boxes">
+                        <label for="machine_select" id="label">Machine</label>
+                        <input type="text" id="machine_sel" list="machine_select" class="form_items" placeholder="Select machine" name="machine_sel" required>
+                            <datalist id="machine_select">
+                            </datalist>
+                    </div>
+
+                    <div id="date_from_div" class="form_item_boxes">
+                        <label for="date_from" id="label">Date From</label>
+                        <input type="date" name="date_from" id="date_from" class="form_items" {% if date_from %} value="{{date_from}}" {% else %} value="2022-08-19" {% endif %} max="{{date_today|date:'Y-m-d'}}">
+                    </div>
+
+                    <div id="date_to_div" class="form_item_boxes">
+                        <label for="date_to" id="label">Date To</label>
+                        <input type="date" name="date_to" id="date_to" class="form_items" {% if date_to %} value="{{date_to}}" {% else %} value="{{date_today|date:'Y-m-d'}}" {% endif %} max="{{date_today|date:'Y-m-d'}}">
+                    </div>
+
+                    <div class="form_item_boxes">
+                        <input type="button" id="form_submit" value="next" onclick="submitForm()">
+                    </div>
+
+                    <div id="checkboxWrapp">
+                        <div id="night" class="checkboxDiv">
+                            <input type="checkbox" id="night" class="checkbox" name="night" value="N" checked>
+                            <label for="night">Night</label>
+                        </div>
+
+                        <div id="morning" class="checkboxDiv">
+                            <input type="checkbox" id="morning" class="checkbox" name="morning" value="R" checked>
+                            <label for="morning">Morning</label>
+                        </div>
+
+                        <div id="afternoon" class="checkboxDiv">
+                            <input type="checkbox" id="afternoon" class="checkbox" name="afternoon" value="O" checked>
+                            <label for="afternoon">Afternoon</label>
+                        </div>
+                    </div>
+
+                </div>
+            </form>
+        </div>
+    
+    <!-- ======================================== graphs ====================================== -->
+    <div id="hideWrapp">
+        <div id="nadpis">
+            <div id="machine_nadpis" class="nadpisGraph"></div>
+        </div> 
+        <div id ="hideContainer">
+            <div id="hideChart1">   
+                <canvas id="scatterChart"></canvas>
+            </div>
+        </div>
+        <input type="button" id="xd" value="Export to XLSX" style="margin-left: 5vw;" onclick="saveChart()">
+    </div>
+    <div id="dataNone">Select Machine</div>
+    <div id="loader">
+        <div id="loaderSpin"></div>
+        <img id="imgLogo" src="/static/ImgForAll/logoBlack.svg" alt="" id="img">
+    </div>
+
+</body>
+    <!-- ======================================== script ====================================== -->
+    <script type="text/javascript" >
+
+
+        let data_machine = {{data_for_selects | safe}}
+        
+
+        function dataNoneText(text){
+            document.getElementById('dataNone').style.display = "block";
+            document.getElementById("hideWrapp").style.display = "none";
+            document.getElementById("dataNone").innerText = text;
+        }
+
+        //      //****** replace all bad chars in partno keys ******
+        replaceKeys(data_machine);
+
+        function replaceKeys(object) {
+            Object.keys(object).forEach(function (key) {
+            var newKey = key.replace(/\s+/g, '');
+            if (object[key] && typeof object[key] === 'object') {
+                replaceKeys(object[key]);
+            }
+            if (key !== newKey) {
+                object[newKey] = object[key];
+                delete object[key];
+            }
+            });
+        }
+
+
+        // //****** create Partno options by key ******
+        data_machine_vals = Object.values(data_machine);
+
+        console.log(data_machine_vals)
+        
+        data_machine_vals.forEach((element, index)  => {
+            let newOption = document.createElement('option');
+            
+            // newOption.textContent = data_machine_vals[index].slice(5,(data_machine_vals[index].length - 12));
+            // newOption.value = data_machine_vals[index].slice(5,(data_machine_vals[index].length - 12));
+            newOption.textContent = data_machine_vals[index]
+            newOption.value = data_machine_vals[index]
+            document.getElementById("machine_select").append(newOption);
+        });
+            
+        
+        // //****** funcion when submit form, includes validation ******
+        function submitForm() {
+            // document.getElementById('dataNone').style.display = "block";
+            // document.getElementById("hideWrapp").style.display = "none";
+            let val_machine = document.getElementById("machine_sel").value;
+            console.log(val_machine)
+            let val_date_from = document.getElementById("date_from").value;
+            let val_date_to = document.getElementById("date_to").value;
+            let val_exists = data_machine_vals.includes(val_machine);
+                
+                // if(val_exists){
+                    if(val_machine.length > 0 )
+                    {
+                        if(val_date_from <= val_date_to)
+                        {                          
+                                    sendData().then(data => acceptedData(data));    
+                        }
+                        else
+                        {   
+                            labelDataNone = "Date From: " + val_date_from + " is greater than " + "Date To: " + val_date_to;
+                            dataNoneText(labelDataNone);
+                        }
+                    }
+                    else
+                    {
+                        labelDataNone = "Empty machine does not exist";
+                        dataNoneText(labelDataNone);
+                    }
+                    
+            }
+        
+
+        //  //****** async function to send data ******
+        const url = "{% url 'changeover:changeover' %}" // pozn pro budouciho simona kdyz je namespace, tak url bude ve formatu "url 'namespace:name'"
+
+        async function sendData() {
+
+            loading();
+
+            var checkArray = []
+            var selectedCheckboxes = document.querySelectorAll('input[type=checkbox]:checked')
+
+            for (var i = 0; i < selectedCheckboxes.length; i++) {
+                checkArray.push(selectedCheckboxes[i].value)
+            }
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    'date_from': document.getElementById('date_from').value,
+                    'date_to': document.getElementById('date_to').value,
+                    'machine_sel': document.getElementById('machine_sel').value,
+                    'checkArray': checkArray,
+                })
+            })
+            
+            
+            return response.json();
+        }
+        // //****** what to do when i have data from response ******
+        var dataDotova = ""
+        function acceptedData(data) {
+            console.log(data)
+            
+            loaded();
+            graf(data)
+        }
+
+        // // // ======================================== charts ======================================
+
+        function graf(data){
+
+            var dataScatter = {
+                labels: [],
+                datasets: [{
+                    pointBackgroundColor: '#3E5641',
+
+                    borderColor: '#3E5641',
+                    showLine:false,
+                    type:"line",
+                    label: "Average changeover duration", //popisek toolbox
+                    fill:false,
+                    data: [],
+                    yAxisID: 'y-axis-1'
+                }]
+            };
+            
+            if(data.graph_data != "?"){
+                for(let i = 0; i < data.graph_data[0].length; i++){
+                    dataScatter.datasets[0].data.push(data.graph_data[0][i])
+                    dataScatter.labels.push(data.graph_data[1][i])
+                }
+            }
+            console.log(dataScatter)
+
+            //optionLine
+        
+            var optionsScatter = {
+              
+                
+                scales: {
+                    xAxes: [{
+                        stacked: true,
+                        scaleLabel: {
+                            display: true,
+                            labelString: "weeks" //popisek dole 
+                        }
+                    }],
+
+                    yAxes: [{
+                        type: "linear",
+                        position: "left",
+                        id: "y-axis-1",
+                        stacked: true,
+                        ticks: {
+                            suggestedMin: 0
+                        },
+                        scaleLabel: {
+                            display: true,
+                            labelString: "duration in [min]"
+                        }
+                    }]
+            }
+                }
+
+            document.getElementById("scatterChart").remove();
+            let canvas = document.createElement('canvas');
+            canvas.id = "scatterChart" 
+            document.getElementById("hideChart1").append(canvas)
+
+            var grafikCanv = document.getElementById("scatterChart")
+
+            const secondChart = new Chart(grafikCanv, {
+                    type: 'line',
+                    data: dataScatter,
+                    options: optionsScatter
+                })
+        }
+
+        function saveChart(){
+            var link = document.createElement("a");
+            link.setAttribute("href", 'http://10.49.34.115/changeover/changeover_export/');
+            document.body.appendChild(link);
+            link.click();
+        }
+
+        function loading(){
+            document.getElementById('dataNone').style.display = "none";
+            document.getElementById("hideWrapp").style.display = "none";
+            document.getElementById('loader').style.display = "block";
+        }
+
+        function loaded(){
+            document.getElementById("hideWrapp").style.display = "block";
+            document.getElementById('loader').style.display = "none";
+            let machineNazev = document.getElementById("machine_sel").value;
+            document.getElementById("machine_nadpis").innerHTML = machineNazev
+        }
+
+    </script>
+</html>

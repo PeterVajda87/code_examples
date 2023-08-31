@@ -1,0 +1,167 @@
+{% extends 'reman_2/base.html' %}
+
+{% block style %}
+<style>
+
+.settings-container {
+    display: flex;
+    flex-flow: row;
+    flex-wrap: wrap;
+}
+
+.customers,
+.material-groups,
+.reporting-period {
+    background-color: white;
+    border: 1px solid black;
+    margin: calc(5vh + 1rem) 3rem;
+    max-height: 40vh;
+    min-width: 40vw;
+    flex-grow: 1;
+    padding: 1rem 2rem;
+    display: flex;
+    flex-flow: column;
+}
+
+.reporting-period {
+    flex-grow: 0;
+}
+
+.header {
+    display: flex;
+    flex-flow: row;
+    justify-content: space-between;
+    cursor: pointer;
+}
+
+.add-new {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 1px solid rgba(0,0,0,0.25);
+    width: 30px;
+    height: 30px;
+    border-radius: 100%;
+    font-size: 30px;
+}
+
+.add-new:hover {
+    background-color: rgba(0,0,0,0.05);
+}
+
+.listing {
+    display: flex;
+    flex-flow: column;
+    overflow: auto;
+}
+
+.listing div {
+    padding: 0.25rem 1rem;
+}
+   
+</style>
+{% endblock %}
+{% block body %}
+
+<div class="settings-container">
+
+    <div class="customers" data-container>
+        <div class="header">
+        <h2>Zákazníci</h2>
+        <div class="add-new" data-type="customer-name" onclick="addNew(this)">+</div>
+    </div>
+    
+    <div class="listing">
+        {% for customer in customers %}
+        <div>{{customer.customer_name}}</div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="material-groups" data-container>
+    <div class="header">
+        <h2>Materiálové skupiny</h2>
+        <div class="add-new" data-type="material-group" onclick="addNew(this)">+</div>
+    </div>
+
+    <div class="listing">
+        {% for group in material_groups %}
+        <div>{{group.material_group}}</div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="reporting-period" data-container>
+    <div class="header" style="display: flex; flex-flow: column">
+        <h2>Období zpracování</h2>
+        <div style="padding: 0.25rem 1rem" >
+            <label for="date-from">Od
+                <input type="date" name="date-from" id="date-from">
+            </label>
+            <label for="date-to">Do
+                <input type="date" name="date-to" id="date-to">
+            </label>
+
+            <input type="button" value="Nastavit" onclick="setDates()">
+        </div>
+    </div>
+</div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    var sessionDateFrom = '{{date_from}}'
+    var sessionDateTo = '{{date_to}}'
+
+    window.addEventListener('DOMContentLoaded', () => { prefillDates() })
+
+    function prefillDates() {
+        if (!sessionDateFrom) {
+            let dateFrom = new Date(new Date().setMonth(new Date().getMonth() - 1))
+            let dateTo = new Date()
+            document.getElementById('date-from').value = new Date(dateFrom.setDate(1)).toISOString().slice(0, 10) //.setDate(1).setMonth(new Date().getMonth() - 1)
+            document.getElementById('date-to').value = new Date(new Date().setDate(0)).toISOString().slice(0, 10)
+        } else {
+            document.getElementById('date-from').value = sessionDateFrom;
+            document.getElementById('date-to').value = sessionDateTo;
+        }
+    }
+
+    function setDates() {
+        let dateFrom = document.getElementById('date-from').value;
+        let dateTo = document.getElementById('date-to').value;
+        fetch(window.location, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({'dateFrom': dateFrom, 'dateTo': dateTo})
+        })
+    }
+
+    function addNew(el) {
+        let container = el.closest("[data-container]");
+        let listing = container.querySelector('.listing');
+        let newItem = document.createElement('div');
+        newItem.contentEditable = true;
+        newItem.dataset.type = el.dataset.type;
+        listing.append(newItem);
+        newItem.focus();
+        newItem.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                e.target.blur();
+                fetch(window.location, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({'data-type': e.target.dataset.type, 'data-value': e.target.textContent})
+                })
+            }
+        })
+    }
+</script>
+{% endblock %}

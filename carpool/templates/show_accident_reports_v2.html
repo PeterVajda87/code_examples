@@ -1,0 +1,103 @@
+
+{% extends 'base.html' %}
+
+{% block head %}
+
+{% load carpool_tags %}
+
+{% load static %}
+<link rel="stylesheet" type="text/css" href="{% static 'global.css' %}">
+
+{% endblock %}
+
+{% block body %}
+<div class="carpool-breadcrumb"><a href="{% url 'carpool_home' %}">Domů</a> > Nehody a události</div>
+<div class="carpool-show-accidents-wrapper">
+
+    <div style="margin-bottom: 1em">
+        <h2>Neuzavřené nehody</h2>
+
+        {% for open_accident in open_accidents %}
+
+        <p style="border: 1px solid lightgray; width: 50%; margin-bottom: 2em; padding: 1em 1em; background-color: rgba(128,128,128,0.05)">
+            <a href="{% url 'edit_accident_report' open_accident.id %}">{{open_accident.carloan.reservation.reserved_car.car_license_plate|to_license_plate}} | {{open_accident.carloan.car_loaner.first_name}} {{open_accident.carloan.car_loaner.last_name}}</a>
+        </p>
+        {% endfor %}
+
+        {% if not open_accidents %}
+
+        Žádné neuzavřené nehody.
+
+        {% endif %}
+
+        {% if carpool_user %}
+        <div style="margin: 1em 0em">
+
+        {% if carloans %}
+        <p style="cursor: pointer; margin-bottom: 0.5em" onclick="get_carloans()">Vytvořit škodnou událost ze zápůjčky.</p>
+        {% endif %}
+
+            <div id="carloans">
+
+            </div>
+
+            <div style="not_displayed">
+                <form>{% csrf_token %}</form>
+            </div>
+        </div>
+        {% endif %}
+    
+    </div>
+
+    <h2>Uzavřené nehody</h2>
+
+    {% for closed_accident in closed_accidents %}
+
+    <p style="border: 1px solid lightgray; width: 50%; margin-bottom: 2em; padding: 1em 1em; background-color: rgba(128,128,128,0.05)">
+        <a href="{% url 'edit_accident_report' closed_accident.id %}">{{closed_accident.carloan.reservation.reserved_car.car_license_plate|to_license_plate}} | {{closed_accident.carloan.car_loaner.first_name}} {{closed_accident.carloan.car_loaner.last_name}}</a>
+    </p>
+
+    {% endfor %}
+
+    {% if not closed_accidents %}
+
+    Žádné uzavřené nehody.
+
+    {% endif %}
+
+</div>
+
+<script>
+
+    function get_carloans(success) {   
+            
+            req = new XMLHttpRequest()
+            req.onreadystatechange = function() {
+                if (req.readyState == 4 && req.status == 200) {
+                    if (req.responseText.length > 3) {
+                        var jsonResponse = JSON.parse(req.responseText)
+                            console.log(jsonResponse);
+                            document.getElementById('carloans').innerHTML = '';
+                            for (var i = 0; i < jsonResponse.length; i++) {
+                                new_p = document.createElement('p');
+                                new_p.innerHTML = "<a href='{% url 'create_accident_report' 123456 %}'>".replace(123456, jsonResponse[i]['carloan_id']) + jsonResponse[i]['carloan_car_license_plate'].slice(0,3) + "-" + jsonResponse[i]['carloan_car_license_plate'].slice(3,8) + " (" + jsonResponse[i]['carloan_start'] + " - " + jsonResponse[i]['carloan_end'] + ")" + "</a>";
+                                document.getElementById('carloans').append(new_p);
+                            }
+                    } 
+                }
+            }
+    
+            url = '{% url "get_carloans" %}'
+    
+            req.open("POST", url, true)
+            req.setRequestHeader('Content-type', 'application/x-www-form-urlencoded')
+            var token = document.getElementsByName('csrfmiddlewaretoken')[0].value
+
+            req.setRequestHeader('X-CSRFToken', token)
+            req.send()
+            return req
+        }
+
+
+</script>
+{% endblock %}

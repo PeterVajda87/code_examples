@@ -1,0 +1,644 @@
+{% extends 'obc4/obc4_base.html'%}
+
+{% block title %}
+OBC4 Losses Report
+{% endblock %}
+
+{% block style %}
+
+<style>
+    .settings {
+    width: 100vw;
+    height: 5vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    }
+
+    
+    .charts-wrapper {
+        display: flex;
+        flex-flow: row;
+        flex-wrap: wrap;
+        height: 95vh;
+        width: 100vw;
+    }
+
+    .chart {
+        width: calc(99vw / 2);
+        height: calc(92vh / 3);
+    }
+    #loader {
+        position: absolute;
+        left: 45vw;
+        top: 45vh;
+        z-index: 1;
+        width: 5vw;
+        height: 5vh;
+    }
+
+    #loaderSpin {
+        width: 6.8vw;
+        height: 6.8vw;
+        /* border: 10px solid #f3f3f3; */
+        border-radius: 50%;
+        border-top: 0.6vw solid #3498db;
+        animation: spin 0.7s ease-in-out infinite;
+        position: absolute;
+    }
+
+    @keyframes spin {
+        0% {
+            transform: rotate(10deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    #imgLogo {
+        height: 5vw;
+        width: 5vw;
+        margin: 1vw 0 0 1vw;
+    }
+
+    input[type=button]{
+        margin-left: 1.5vw;
+        padding: 0.1vh 0.2vw;
+        background-color: white;
+        border: 0.1vh solid gray;
+        border-radius: 0.2vh;
+        transition: background-color 200ms;
+    }
+    input[type=button]:hover{
+        cursor: pointer;
+        background-color: rgb(243, 242, 242);
+    }
+</style>
+
+{% endblock %}
+
+{% block body %}
+<header class="settings">
+    <label>Od
+        <input type="date" name="date-from" id="date-from" >
+    </label>
+    <label style="display: flex; width: 10vw; flex-flow: row; justify-content: center; column-gap: 0.5vw">
+        <input type="checkbox" checked onchange="submitForm()" value="R">R
+        <input type="checkbox" checked onchange="submitForm()" value="O">O
+        <input type="checkbox" checked onchange="submitForm()" value="N">N
+    </label>
+    <label>Do
+        <input type="date" name="date-to" id="date-to">
+    </label>
+    <input type="button" onclick="submitForm()" value="Odeslat">
+</header>
+
+<main class="charts-wrapper">
+    <div class="chart" id="time-losses"></div>
+    <div class="chart" id="time-losses-detail"></div>
+    <div class="chart" id="id-stations"></div>
+    <div class="chart" id="id-stations-detail"></div>
+    <div class="chart" id="alarm-chart"></div>
+    <div class="chart" id="alarm-chart-details"></div>
+</main>
+
+<div id="loader">
+    <div id="loaderSpin"></div>
+    <img id="imgLogo" src="/static/ImgForAll/logoBlack.svg" alt="" id="img">
+</div>
+
+{% endblock %}
+
+{% block scripts-bottom %}
+<script>
+    var shifts = [];
+    var dateTo = new Date();
+    var dateFrom = new Date();
+    const charts = document.querySelectorAll('div.chart');
+
+    google.charts.load('current', { 'packages': ['corechart'] });
+    google.charts.setOnLoadCallback(submitForm);
+
+    dateFrom.setDate(dateTo.getDate() - 10);
+    document.querySelector('[name="date-from"]').value = dateFrom.toISOString().slice(0, 10);
+    document.querySelector('[name="date-to"]').value = dateTo.toISOString().slice(0, 10);
+
+    var weeksRange = false; 
+
+    function submitForm(){
+        getChartData().then(resp => drawChart(resp))
+    }
+
+    function setShifts() { 
+        shifts = [];    
+        document.querySelectorAll('input:checked').forEach(checkbox => {      
+        shifts.push(checkbox.value);
+      })   
+    }
+
+    async function getChartData() {
+        setShifts()
+        dateFrom = document.querySelector('[name="date-from"]').value
+        dateTo = document.querySelector('[name="date-to"]').value
+
+        document.querySelector(".charts-wrapper").style.visibility = "hidden";
+        document.getElementById("loader").style.display = "block";
+
+        const url = window.location.href;
+        const resp = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                'date_to': dateTo,
+                'date_from': dateFrom,
+                'shifts': shifts,
+            })
+        })
+
+        return resp.json()
+    }
+
+    function drawChart(resp) {
+        document.querySelector(".charts-wrapper").style.visibility = "visible";
+        document.getElementById("loader").style.display = "none";
+
+        updateLossesChart(resp['x_axis_labels'], resp['y_axis_values'])
+        updateIdStationsChart(resp['x_axis_labels'], resp['y_axis_idstations'])
+        updateAlarmTextsChart(resp['x_axis_labels'], resp['y_axis_alarmtexts'])
+    }
+
+
+    // -------------------------- losses char --------------------------
+    function updateLossesChart(xAxis, yData) {
+            var data = new google.visualization.DataTable();
+
+            console.log(yData)
+            console.log(xAxis)
+            
+            data.addColumn('date', 'Period');
+            data.addColumn('number', 'Production');
+            data.addColumn('number', 'Technical');
+            data.addColumn('number', 'Organization');
+            data.addColumn('number', 'Changeover');
+            data.addColumn('number', 'Logistics');
+          
+            let technical = yData['Technical']
+            let organizational = yData['Organization']
+            let logistics = yData['Logistics']
+            let maintenance = yData['Changeover']
+            
+            let maxWeekValue = 480
+            
+            xAxis.forEach((xTick, xIndex) => {
+                dayValue = technical[xIndex] + organizational[xIndex] + maintenance[xIndex] + logistics[xIndex];
+
+                reminderFromMaxWeek = maxWeekValue - dayValue
+
+                data.addRow([new Date(xTick.toString()), calculatePercentile(reminderFromMaxWeek, maxWeekValue), calculatePercentile(technical[xIndex], maxWeekValue), calculatePercentile(organizational[xIndex], maxWeekValue), calculatePercentile(maintenance[xIndex], maxWeekValue), calculatePercentile(logistics[xIndex], maxWeekValue)]);
+                
+            })        
+
+            var options = {
+                title: 'Time losses (%)',
+                seriesType: 'bars',
+                series: [{ color: '#0099C6', visibleInLegend: true }, { color: '#24BF50', visibleInLegend: true }, { color: '#48CAE4', visibleInLegend: true }, { color: '#E4538B', visibleInLegend: true }, { color: '#FD8300', visibleInLegend: true }, { color: '#FFD60A', visibleInLegend: true }],
+                legend: { position: 'top', alignment: 'start' },
+                isStacked: true,
+                explorer: {
+                    axis: 'vertical',
+                    keepInBounds: true,
+                    maxZoomIn: 4.0
+                },
+                hAxis: {
+                    ticks: (() => {
+                        ticksList = []
+                        xAxis.forEach(xTick => {
+                                ticksList.push({ v: new Date(xTick.split("-").join(",")), f: setDateFormat(xTick) });
+                        })
+                        return ticksList
+                    })(),
+                }
+            };
+            let nameArray = ['Production', 'Technical', 'Organization', 'Changeover', 'Logistics']
+            let colors = [ '#0099C6', '#24BF50', '#48CAE4', '#E4538B', '#FD8300']
+
+
+            const ctx = document.getElementById('time-losses')
+
+            var chart = new google.visualization.ComboChart(ctx);
+            chart.draw(data, options);
+
+            function selectHandler() {
+                var selectedItem = chart.getSelection()[0];
+                if (selectedItem) {
+                    var newGraphDataIndex = selectedItem.column - 1;
+
+                    
+
+                    newGraf(newGraphDataIndex);
+                }
+            }
+
+            google.visualization.events.addListener(chart, 'select', selectHandler);
+
+
+            //funkce pro vytvoreni noveho grafu po kliknuti
+            function newGraf(dataIndex) {
+                    
+                //deklarovani arraye s nazvy 
+                const newItemName = nameArray[dataIndex];
+                
+
+                const newItemColor = colors[dataIndex];
+
+                
+                // const newDataArray = dataArray[dataIndex];
+
+                var data = new google.visualization.DataTable();
+                data.addColumn('date', 'Period');
+                data.addColumn('number', newItemName);
+
+                let maxWeekValue = 480
+
+
+                //pridavani dat pro kazdou polozku na X ose 
+                if(newItemName == 'Production'){
+                    xAxis.forEach((xTick, xIndex) => {
+                        dayValue = technical[xIndex] + organizational[xIndex] + maintenance[xIndex] + logistics[xIndex];
+
+                        reminderFromMaxWeek = maxWeekValue - dayValue
+                 
+                        data.addRow([new Date(xTick.toString()), calculatePercentile(reminderFromMaxWeek, maxWeekValue)]);
+                    })
+                }else{
+                    xAxis.forEach((xTick, xIndex) => {
+                        
+                        data.addRow([new Date(xTick.toString()), calculatePercentile(yData[newItemName][xIndex], maxWeekValue)]);
+                    })
+                }
+                    
+
+                var optionsNewGraf = {
+                    title: newItemName + ' details (%)',
+                    seriesType: 'bars',
+                    series: [{color: newItemColor}],
+                    legend: { position: 'top', alignment: 'start' },
+                    isStacked: true,
+                    explorer: {
+                        axis: 'vertical',
+                        keepInBounds: true,
+                        maxZoomIn: 4.0
+                    },
+                    hAxis: {
+                        ticks: (() => {
+                            ticksList = []
+                            xAxis.forEach(xTick => {
+                                ticksList.push({ v: new Date(xTick.split("-").join(",")), f: setDateFormat(xTick) });
+                            })
+                            return ticksList
+                        })(),
+                    }
+                };
+
+                document.getElementById('time-losses-detail').remove;
+
+                let detailsDiv = document.createElement("div");
+                detailsDiv.setAttribute("id", 'time-losses-detail');
+
+                document.querySelector('.charts-wrapper').appendChild(detailsDiv)
+
+
+                var chart = new google.visualization.ComboChart(document.getElementById('time-losses-detail'));
+                chart.draw(data, optionsNewGraf);
+                screencapDetails = true
+            }
+        }
+
+        function updateIdStationsChart(xAxis, yData) {
+            var data = new google.visualization.DataTable();
+            data.addColumn('date', 'Period');
+            data.addColumn('number', 'Production');
+            data.addColumn('number', '10');
+            data.addColumn('number', '20');
+            data.addColumn('number', '40');
+            data.addColumn('number', '70');
+            data.addColumn('number', '90');
+            
+            let id_station_1 = yData['10']
+            let id_station_2 = yData['20']
+            let id_station_3 = yData['40']
+            let id_station_4 = yData['70']
+            let id_station_5 = yData['90']
+            let maxWeekValue = 480
+
+            xAxis.forEach((xTick, xIndex) => {
+                dayValue = id_station_1[xIndex] + id_station_2[xIndex] + id_station_3[xIndex] + id_station_4[xIndex] + id_station_5[xIndex];
+
+                reminderFromMaxWeek = maxWeekValue - dayValue
+
+                data.addRow([new Date(xTick.toString()), calculatePercentile(reminderFromMaxWeek, maxWeekValue), calculatePercentile(id_station_1[xIndex], maxWeekValue), calculatePercentile(id_station_2[xIndex], maxWeekValue), calculatePercentile(id_station_3[xIndex], maxWeekValue), calculatePercentile(id_station_4[xIndex], maxWeekValue), calculatePercentile(id_station_5[xIndex], maxWeekValue)]);
+                
+            })     
+
+            var options = {
+                title: 'ID stations',
+                seriesType: 'bars',
+                series: [{ color: '#0099C6', visibleInLegend: true }, { color: '#F5D753', visibleInLegend: true }, { color: '#44D449', visibleInLegend: true }, { color: '#57B2EB', visibleInLegend: true }, { color: '#A644D4', visibleInLegend: true }, { color: '#F7794F', visibleInLegend: true }],
+                legend: { position: 'top', alignment: 'start' },
+                isStacked: true,
+                explorer: {
+                    axis: 'vertical',
+                    keepInBounds: true,
+                    maxZoomIn: 4.0
+                },
+                hAxis: {
+                    ticks: (() => {
+                        ticksList = []
+                        xAxis.forEach(xTick => {
+                            ticksList.push({ v: new Date(xTick.split("-").join(",")), f: setDateFormat(xTick) });
+                        })
+                        return ticksList
+                    })(),
+                }
+            };
+            let nameArray = ['Production', '10', '20', '40', '70', '90']
+            let color = ['#0099C6','#F5D753', '#44D449', '#57B2EB', '#A644D4', '#F7794F']
+
+
+            const ctx = document.getElementById('id-stations')
+
+            var chart = new google.visualization.ComboChart(ctx);
+            chart.draw(data, options);
+
+            function selectHandler() {
+                var selectedItem = chart.getSelection()[0];
+                if (selectedItem) {
+                    var newGraphDataIndex = selectedItem.column - 1;
+                    
+                    newGraf(newGraphDataIndex);
+                }
+            }
+
+            google.visualization.events.addListener(chart, 'select', selectHandler);
+
+
+            //funkce pro vytvoreni noveho grafu po kliknuti
+            function newGraf(dataIndex) {
+                
+                //deklarovani arraye s nazvy 
+                const newItemName = nameArray[dataIndex];
+                const newItemColor = color[dataIndex]
+
+                
+
+                var data = new google.visualization.DataTable();
+                data.addColumn('date', 'Period');
+                data.addColumn('number', newItemName);
+                let maxWeekValue = 480
+
+                //pridavani dat pro kazdou polozku na X ose 
+                if(newItemName == 'Production'){
+                    xAxis.forEach((xTick, xIndex) => {
+                        dayValue = id_station_1[xIndex] + id_station_2[xIndex] + id_station_3[xIndex] + id_station_4[xIndex] + id_station_5[xIndex];
+
+                        reminderFromMaxWeek = maxWeekValue - dayValue
+                 
+                        data.addRow([new Date(xTick.toString()), calculatePercentile(reminderFromMaxWeek, maxWeekValue)]);
+                    })
+                }else{
+                    xAxis.forEach((xTick, xIndex) => {
+                        
+                        data.addRow([new Date(xTick.toString()), calculatePercentile(yData[newItemName][xIndex], maxWeekValue)]);
+                    })
+                }
+
+                var optionsNewGraf = {
+                    title: newItemName + ' details (minutes)',
+                    seriesType: 'bars',
+                    series: [{color: newItemColor}],
+                    legend: { position: 'top', alignment: 'start' },
+                    isStacked: true,
+                    explorer: {
+                        axis: 'vertical',
+                        keepInBounds: true,
+                        maxZoomIn: 4.0
+                    },
+                    hAxis: {
+                        ticks: (() => {
+                            ticksList = []
+                            xAxis.forEach(xTick => {
+                                ticksList.push({ v: new Date(xTick.split("-").join(",")), f: setDateFormat(xTick) });
+                            })
+                            return ticksList
+                        })(),
+                    }
+                };
+
+                document.getElementById('id-stations-detail').remove;
+
+                let detailsDiv = document.createElement("div");
+                detailsDiv.setAttribute("id", 'id-stations-detail');
+
+                document.querySelector('.charts-wrapper').appendChild(detailsDiv)
+
+
+                var chart = new google.visualization.ComboChart(document.getElementById('id-stations-detail'));
+                chart.draw(data, optionsNewGraf);
+                screencapDetails = true
+            }
+        }
+
+        function updateAlarmTextsChart(xAxis, yData) {
+            let allKeys = []
+            let allKeysSoucet =[]
+            let data = []
+            
+            for(let j = 0; j < Object.values(yData).length; j++){
+                let soucet = 0
+                for(let i = 0; i < Object.values(yData)[j].length; i++){
+                    soucet = soucet + Object.values(yData)[j][i]
+                }
+
+                if(soucet > 10){
+                    allKeysSoucet.push(soucet)
+                    allKeys.push(Object.keys(yData)[j])
+                }
+            }
+
+            allKeysSoucet.sort(function(a, b){return a - b})
+            checkAllKeyLenght()
+
+            function checkAllKeyLenght(){
+                if(allKeysSoucet.length > 10){
+                    allKeysSoucet.shift()
+                    allKeys.shift()
+                    checkAllKeyLenght()
+                }
+            }
+
+     
+
+            allKeys.unshift({label:'Date', type:'date'})
+
+            data.push(allKeys)
+
+            
+
+            for (var i = 0; i < Object.values(yData)[0].length; i++) {
+
+                var temp = [];
+                
+                temp.push(new Date(xAxis[i].toString()))
+                
+                
+                for(let j = 1; j < allKeys.length; j++){
+                    temp.push(Object.values(yData[allKeys[j]])[i])
+                }
+
+                
+                data.push(temp);
+            }
+            
+            var chartdata = new google.visualization.arrayToDataTable(data);
+
+            
+            
+
+
+            var options = {
+                title: 'Technical problems',
+                seriesType: 'bars',
+                series: [{ color: '#8A4F7D', visibleInLegend: true }, { color: '#81C3D7', visibleInLegend: true }, { color: '#CEEC97', visibleInLegend: true }, { color: '#F05D23', visibleInLegend: true }, { color: '#FF4365', visibleInLegend: true }, { color: '#494368', visibleInLegend: true }, { color: '#0072BB', visibleInLegend: true }, { color: '#00D9C0', visibleInLegend: true }, { color: '#F3CA40', visibleInLegend: true }, { color: '#EF8275', visibleInLegend: true }],
+                legend: { position: 'top', alignment: 'start' },
+                isStacked: true,
+                explorer: {
+                    axis: 'vertical',
+                    keepInBounds: true,
+                    maxZoomIn: 500.0
+                },
+                hAxis: {
+                    ticks: (() => {
+                        ticksList = []
+                        xAxis.forEach(xTick => {
+                                ticksList.push({ v: new Date(xTick.split("-").join(",")), f: setDateFormat(xTick) });
+                        })
+                        return ticksList
+                    })(),
+                }
+            };
+            let nameArray = [...allKeys]
+            nameArray.shift()
+            let color = ['#8A4F7D', '#81C3D7', '#CEEC97', '#F05D23', '#FF4365', '#494368', '#0072BB', '#00D9C0', '#F3CA40', '#EF8275']
+
+
+            const ctx = document.getElementById('alarm-chart')
+
+            // var chart = new google.visualization.ComboChart(ctx);
+            var chart = new google.visualization.ComboChart(ctx);
+            chart.draw(chartdata, options);
+
+            function selectHandler() {
+                var selectedItem = chart.getSelection()[0];
+                if (selectedItem) {
+                    var newGraphDataIndex = selectedItem.column - 1;
+                    newGraf(newGraphDataIndex);
+                }
+            }
+
+            google.visualization.events.addListener(chart, 'select', selectHandler);
+
+
+            //funkce pro vytvoreni noveho grafu po kliknuti
+            function newGraf(dataIndex) {
+                
+                //deklarovani arraye s nazvy 
+                const newItemName = nameArray[dataIndex];
+                const newItemColor = color[dataIndex]
+
+
+                var data = new google.visualization.DataTable();
+                data.addColumn('date', 'Period');
+                data.addColumn('number', newItemName);
+
+
+                //pridavani dat pro kazdou polozku na X ose 
+                xAxis.forEach((xTick, xIndex) => {
+                    
+                    data.addRow([new Date(xTick.toString()), yData[newItemName][xIndex]]);
+                    
+                 })
+
+                var optionsNewGraf = {
+                    title: newItemName + ' details (minutes)',
+                    seriesType: 'bars',
+                    series: [{color: newItemColor}],
+                    legend: { position: 'top', alignment: 'start' },
+                    isStacked: true,
+                    explorer: {
+                        axis: 'vertical',
+                        keepInBounds: true,
+                        maxZoomIn: 4.0
+                    },
+                    hAxis: {
+                        ticks: (() => {
+                            ticksList = []
+                            xAxis.forEach(xTick => {
+                                ticksList.push({ v: new Date(xTick.split("-").join(",")), f: setDateFormat(xTick) });
+                            })
+                            return ticksList
+                        })(),
+                    }
+                };
+
+                document.getElementById('alarm-chart-details').remove;
+
+                let detailsDiv = document.createElement("div");
+                detailsDiv.setAttribute("id", 'alarm-chart-details');
+
+                document.querySelector('.charts-wrapper').appendChild(detailsDiv)
+
+
+                var chart = new google.visualization.ComboChart(document.getElementById('alarm-chart-details'));
+                chart.draw(data, optionsNewGraf);
+                screencapDetails = true
+            }
+        }
+
+    
+        
+        function setDateFormat(xTick) {
+            let wholeDate = new Date(xTick);
+            if (weeksRange) {
+                return wholeDate.getWeek().toString();
+            } else {
+                return wholeDate.toLocaleDateString("en-GB").slice(0, 6) + wholeDate.toLocaleDateString("en-GB").slice(8, 10);
+            }
+        }
+
+        function setDateFormatString(string) {
+
+            const wholeDate = new Date(string).toDateString()
+
+            const [, month, day, year] = wholeDate.split(' ')
+
+            const dateReady = `${month} ${day}, ${year}`
+
+
+            if (weeksRange) {
+                return wholeDate.getWeek().toString();
+            } else {
+                return dateReady
+            }
+        }
+
+        function calculatePercentile(value, maxWeekValue){
+                return ((value / maxWeekValue) * 100)
+        }
+
+</script>
+
+{% endblock %}

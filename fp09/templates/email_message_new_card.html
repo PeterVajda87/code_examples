@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+
+<body>
+    <table style="width: 600px">
+        <tr>
+            <td>
+                Stanice:
+            </td>
+            <td>
+                {{card.station.name}}
+            </td>
+        </tr>
+
+        <tr>
+            <td>
+                Název:
+            </td>
+            <td>
+                {{card.title}}
+            </td>
+        </tr>
+
+        <tr>
+            <td>
+                Odpovědný:
+            </td>
+            <td>
+                {{card.responsible}}
+            </td>
+        </tr>
+
+        <tr>
+            <td>
+                Kategorie:
+            </td>
+            <td>
+                {{card.category}}
+            </td>
+        </tr>
+
+        <tr>
+            <td>
+                Priorita:
+            </td>
+            <td>
+                {{card.priority}}
+            </td>
+        </tr>
+
+        <tr>
+            <td>
+                Termín:
+            </td>
+            <td>
+                {{card.planned_finish}}
+            </td>
+        </tr>
+
+        <tr>
+            <td>
+                Popis:
+            </td>
+            <td>
+                {{card.description}}
+            </td>
+        </tr>
+
+
+
+    {% for action_entry in card.servicebookactionentry_set.all %}
+        <tr>
+            <td>
+                Akce/Komentáře:
+            </td>
+            <td>
+                <p>Popis: {{action_entry.description}}</p>
+                <p>Odpovědný: {{action_entry.owner}}</p>
+                <p>Termín: {{action_entry.planned_end}}</p>
+            </td>
+        </tr>
+    {% endfor %}
+
+    </table>
+</body>
+
+</html>

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="refresh" content="3">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Report prostojů</title>
+
+    {% load static %}
+    <script src="{% static 'xlsx.full.min.js' %}"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        @font-face {
+            font-family: 'Noto Sans';
+            src: url('/media/fonts/NotoSans-Light.ttf');
+        }
+
+        @font-face {
+            font-family: 'Noto Sans';
+            font-weight: bold;
+            src: url('/media/fonts/NotoSans-Regular.ttf');
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .wrapper {
+            width: clamp(600px, 80vw, 1600px);
+            margin: 0 auto;
+            height: 100vh;
+            display: flex;
+            flex-flow: column;
+            border: 1px solid rgba(255, 0, 0, 0.2);
+            border-radius: 5px;
+            padding: 0 2vw;
+        }
+
+        .table-of-downtimes {
+            height: 100%;
+            overflow: auto;
+            display: flex;
+            flex-flow: column;   
+        }
+
+        .table-of-downtimes > div {
+            display: flex;
+            flex-flow: row;
+            flex-wrap: nowrap;
+        }
+
+        .table-of-downtimes > div > div {
+            flex-grow: 1;
+            flex-shrink: 1;
+            flex-basis: 0;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <div id="table-of-downtimes" class="table-of-downtimes">
+            <div class="table-row">
+                <div>Linka/Stroj</div>
+                <div>Začátek</div>
+                <div>Konec</div>
+                <div>Trvání</div>
+                <div>Kategorie prostoje</div>
+                <div>Důvod prostoje</div>
+                <div>Komentář</div>
+            </div>
+            {% for item in data %}
+                <div class="table-row">
+                    <div>{{item.machine.machine}}</div>
+                    <div>{{item.downtime_beginning|date:"Y-m-d H:i"}}</div>
+                    <div>{{item.downtime_end|date:"Y-m-d H:i"}}</div>
+                    <div>{{item.duration}}</div>
+                    <div>{{item.downtime.category.category  }}</div>
+                    <div>{{item.downtime.downtime}}</div>
+                    <div>{{item.downtime.comment}}</div>
+                </div>
+            {% endfor %}
+
+        </div>
+    </div>
+
+<script>
+    document.addEventListener('keydown', (e) => {
+        if (String.fromCharCode(e.keyCode).toLowerCase() === 'x' && e.ctrlKey) {
+            console.log('Hanka je nejhezci na svete')
+            let aoa = [];
+            let tableRows = document.getElementById('table-of-downtimes').querySelectorAll('div.table-row');
+
+            tableRows.forEach(row => {
+                let rowData = [];
+                row.querySelectorAll('div').forEach(cell => {
+                    rowData.push(cell.textContent.replace("DMC80H-", ""));
+                });
+                aoa.push(rowData);
+            })
+
+            let worksheet = XLSX.utils.aoa_to_sheet(aoa);
+            let workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Data")
+            XLSX.writeFile(workbook, "Prostoje.xlsb");
+        }
+    })
+</script>
+</body>
+</html>

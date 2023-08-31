@@ -1,0 +1,469 @@
+
+{% extends 'base.html' %}
+
+{% block head %}
+
+{% load carpool_tags %}
+
+{% load static %}
+<link rel="stylesheet" type="text/css" href="{% static 'global.css' %}">
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        font-family: 'Times New Roman', Times, serif;
+        box-sizing: border-box;
+        overflow: hidden;
+        color: #00457e;
+    }
+
+    .carpool-calendar-wrapper {
+        width: 100vw;
+        height: 100vh;
+        display: grid;
+        grid-template-rows: 1fr 15fr 1fr;
+        justify-content: stretch;
+    }
+
+    .carpool-calendar-navigation {
+        grid-row: 3/4;
+        grid-column: 1/9;
+        display: flex;
+        text-align: center;
+        justify-content: stretch;
+        align-items: stretch;
+    }
+
+    .carpool-calendar-navigation a {
+        width: 100%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .carpool-calendar-navigation a:hover {
+        background-color: #00457e;
+        color: white;
+    }
+
+    img {
+        max-width: 100%;
+        max-height: 5vh;
+    }
+
+    .carpool-calendar-home-link {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+    }
+
+    .carpool-calendar-header {
+        grid-row: 1/2;
+        display: grid;
+        grid-template-columns: 0.5fr repeat(7, 1fr);
+        justify-items: stretch;
+        width: 100vw;
+    }
+
+    .carpool-calendar-body {
+        grid-row: 2/3;
+        grid-column: 1/9;
+        display: grid;
+        height: 100%;
+        grid-auto-rows: 1fr;
+        overflow: hidden;
+    }
+
+    .carpool-calendar-weekday {
+        display: grid;
+        grid-template-rows: 2fr 1fr;
+        background-color: rgba(0, 69, 126, 0.025);
+        border-left: 1px solid rgb(0, 69, 126);
+    }
+
+    .carpool-calendar-weekday:first-of-type {
+        border-left: 0;
+    }
+
+    .carpool-calendar-weekday-name {
+        grid-row: 1/2;
+        display: flex;
+        justify-content: space-evenly;
+        align-items: center;
+        cursor: default;
+    }
+
+    .carpool-calendar-day-hours-wrapper {
+        grid-row: 2/3;
+        display: grid;
+        grid-template-columns: repeat(9, 1fr);    }
+
+    .carpool-calendar-day-hour {
+        border-left: 1px solid #00457e;
+        border-bottom: 1px solid #00457e;
+        text-align: center;
+        font-size: 0.8em;
+    }
+
+    .carpool-calendar-day-hour:first-of-type {
+        border-left: 0;
+    }
+
+    .carpool-calendar-car {
+        display: grid;
+        grid-template-columns: 0.5fr repeat(7, 1fr);
+        border-bottom: 1px solid #00457e;
+        cursor: default;
+    }
+
+    .carpool-calendar-car-day {
+        display: grid;
+        grid-template-columns: repeat(9, 1fr);
+    }
+
+    .carpool-calendar-car-name {
+        display: flex;
+        flex-direction: column;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+        background-color: rgba(0, 69, 126, 0.025);
+    }
+
+    .carpool-calendar-car-hour {
+        box-sizing: border-box;
+        border-left: 0.5px solid lightgray;
+        cursor: pointer;
+    }
+
+    .carpool-calendar-car-hour > div {
+        cursor: help;
+    }
+
+    .carpool-booked-slot {
+        background-color: #00457e;
+        color: white;
+        z-index: 10;
+        position: absolute;
+        max-width: 100%;
+        max-height: 100%;
+    }
+
+    .carpool-calendar-car-day .carpool-calendar-car-hour:first-of-type {
+        border-left: 1px solid #00457e;
+    }
+
+    .text-in-reservation {
+        font-size: 0.8em;
+    }
+
+    .carpool-cars {
+        border: 1px solid black;
+        border-collapse: collapse;
+        font-size: 0.8em;
+    }
+
+    .carpool-cars td {
+        border: 1px solid black;
+    }
+
+    .carpool-create-carloan-wrapper {
+        width: 80%;
+        margin: 1em auto;
+    }
+
+    .carpool-create-carloan-wrapper h2 {
+        padding-bottom: 1em;
+    }
+
+    .carpool-carloan-form fieldset {
+        margin-bottom: 1em;
+        padding: 0 1em;
+        border: 0px;
+        background: rgba(0,255,0,0.025);
+        display: grid;
+    }
+
+    .carpool-carloan-form input, .carpool-carloan-form textarea, .carpool-carloan-form label {
+        display: block;
+        width: 80%;
+        box-sizing: border-box;
+        margin: 0 1em;
+        font-size: 1em;
+    }
+
+    .carpool-carloan-form input, .carpool-carloan-form textarea {
+        padding: 0.25em 0.5em;
+        margin-bottom: 0.5em;
+    }
+
+    .carpool-carloan-form textarea {
+        width: calc(100% - 4em);
+        resize: vertical;
+        min-height: 2em;
+    }
+
+    .carpool-carloan-form input[type="submit"] {
+        width: calc(100% - 4em);
+        padding: 0 1em;
+        margin: 0 1em;
+        height: 3em;
+    }
+
+    .carpool-calendar-hover-message {
+        height: 100%;
+        pointer-events: none;
+    }
+
+    .carpool-calendar-hover-message > div {
+        height: 100%;
+        pointer-events: none;
+        color: white;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    
+</style>
+
+{% endblock %}
+
+{% block body %}
+
+<div class="carpool-calendar-wrapper">
+
+    <div class="carpool-calendar-header">
+
+        <div class="carpool-calendar-home-link">
+            <img src="/media/carpool/home_icon.png" onclick="location.href='{% url "carpool_home" %}';">
+        </div>
+
+        {% for day in week %}
+
+        <div class="carpool-calendar-weekday">
+
+            <div class="carpool-calendar-weekday-name" id="day-{{forloop.counter}}">{{day|date:"l"|title}} <span>{{day|date:"d. m."}}</span></div>
+            <div class="carpool-calendar-day-hours-wrapper">
+
+                {% for hour in 8|range:17 %}
+                <div class="carpool-calendar-day-hour" id="{{hour}}-{{forloop.parentloop.counter}}-{{hour}}">
+                    {{hour}}
+                </div>
+                {% endfor %}
+
+            </div>
+
+        </div>
+
+        {% endfor %}
+
+    </div>
+
+    
+    <div class="carpool-calendar-body">
+        
+    {% for car in list_of_cars %}
+
+        <div class="carpool-calendar-car" id="{{forloop.counter}}">
+            <div class="carpool-calendar-car-name">{{car.car_license_plate|to_license_plate}}
+                {% if car.department and car.department == 'Reman' %}
+                <span style="font-size: 0.8em; display: block;">({{car.department}})</span>
+                {% endif %}
+            </div>
+
+            {% for day in 1|range:8 %}
+            <div class="carpool-calendar-car-day" id="{{forloop.parentloop.counter}}-{{day}}">
+                {% for hour in 8|range:17 %}
+
+                <div class="carpool-calendar-car-hour" id="{{forloop.parentloop.parentloop.counter}}-{{day}}-{{hour}}"></div>
+
+                {% endfor %}
+            </div>
+            {% endfor %}
+
+        </div>
+
+    {% endfor %}
+        
+    </div>
+
+    <div class="carpool-calendar-navigation">
+        <a href="{% url 'carpool_calendar' year week_n|add:"-1" %}">Předchozí týden</a>
+        <a href="{% url 'carpool_calendar' year week_n|add:"1" %}">Následující týden</a>
+    </div>
+
+</div>
+
+
+<script>
+
+    const H = 800;
+    const W = 1200;
+    const POPUP_WIDTH = window.outerWidth - window.outerWidth / 3
+    const POPUP_HEIGHT = window.outerHeight - window.outerHeight / 3
+    console.log({{list_of_dicts|safe}})
+
+    window.addEventListener('resize', resizeBars);
+
+    window.onload = startupScripts;
+    
+    function startupScripts() {
+        addEventListenersToHours();
+        addEventListenersToCars();
+        fillSlots({{list_of_dicts|safe}});
+    }
+
+    function addEventListenersToHours() {
+        var hour_elems = document.getElementsByClassName('carpool-calendar-car-hour');
+        for (var hour_elem of hour_elems) {
+            hour_elem.addEventListener("mouseover", highlightHour);
+            hour_elem.addEventListener("mouseout", unhighlightHour);
+            hour_elem.addEventListener("click", placeReservation);
+            hour_elem.param = hour_elem.id;
+        }
+    }
+
+    function addEventListenersToCars() {
+        var car_elems = document.getElementsByClassName('carpool-calendar-car');
+        for (var car_elem of car_elems) {
+            car_elem.addEventListener("mouseover", highlightCar);
+            car_elem.addEventListener("mouseout", unhighlightCar);
+            car_elem.param = car_elem.id;
+        }
+    }
+
+    function highlightHour(e) {
+        var hour_id = e.currentTarget.param.split('-')[2];
+        var day_id = e.currentTarget.param.split('-')[1];
+        var hour_elems = document.getElementsByClassName('carpool-calendar-car-hour');
+        var hour_names = document.getElementsByClassName('carpool-calendar-day-hour');
+        for (var hour_elem of hour_elems) {
+            if (hour_elem.id.split('-')[2] == hour_id && hour_elem.id.split('-')[1] == day_id) {
+                hour_elem.style.backgroundColor = 'rgba(255,0,0,0.025)';
+            }
+        }
+        for (var hour_name of hour_names) {
+            if (hour_name.id.split('-')[2] == hour_id && hour_name.id.split('-')[1] == day_id) {
+                hour_name.style.fontWeight = '700';
+            }
+        }
+        
+        var day_names = document.getElementsByClassName('carpool-calendar-weekday-name');
+        for (var day_name of day_names) {
+            if (day_name.id == "day-" + day_id) {
+                day_name.style.fontWeight = '700';
+            }
+        }
+    }
+
+    function placeReservation(e) {
+        var car = e.target.id.split("-")[0]
+        var day = e.target.id.split("-")[1]
+        var start = e.target.id.split("-")[2]
+        var year = {{year}}
+        var week = {{week_n}}
+
+        var y = window.outerHeight / 2 + window.screenY - (H / 2)
+        var x = window.outerWidth / 2 + window.screenX - (W / 2)
+
+        if (!(e.target.classList.contains('carpool-booked-slot'))) {
+
+            window.open('{% url 'create_reservation' "111" "222" "333" "444" "555" %}'.replace("333", car).replace("444", day).replace("555", start).replace("111", year).replace("222", week),'popup','width=' + POPUP_WIDTH + ', height=' + POPUP_HEIGHT + ', top=' + y + ', left=' + x)
+        }
+    }
+
+    function highlightCar(e) {
+        var car_id = e.currentTarget.param;
+        var car_elems = document.getElementsByClassName('carpool-calendar-car');
+        for (var car_elem of car_elems) {
+            if (car_elem.id == car_id) {
+                car_elem.style.backgroundColor = 'rgba(255,0,0,0.05)';
+                car_elem.style.fontWeight = '700';
+            }
+        }
+    }
+
+
+    function unhighlightCar(e) {
+        var car_id = e.currentTarget.param;
+        var car_elems = document.getElementsByClassName('carpool-calendar-car');
+        for (var car_elem of car_elems) {
+            if (car_elem.id == car_id) {
+                car_elem.style.backgroundColor = 'white';
+                car_elem.style.fontWeight = '300';
+            }
+        }
+    }
+
+    function unhighlightHour(e) {
+        var hour_elems = document.getElementsByClassName('carpool-calendar-car-hour');
+        for (var hour_elem of hour_elems) {
+                hour_elem.style.backgroundColor = 'white';
+            }
+        var hour_names = document.getElementsByClassName('carpool-calendar-day-hour');
+        for (var hour_name of hour_names) {
+            hour_name.style.fontWeight = '300';
+            }
+
+        var day_names = document.getElementsByClassName('carpool-calendar-weekday-name');
+        for (var day_name of day_names) {
+            day_name.style.fontWeight = '300';
+        }
+    }
+
+    
+    function fillSlots(list_of_slot_dict) {
+        for (const slot_dict of list_of_slot_dict) {
+            // console.log(slot_dict["duration"])
+
+            let multiplier = parseFloat(slot_dict["duration"])
+            let hover_info = slot_dict["hover_info"]
+            let hover_info_plain_text = slot_dict["hover_info_plain_text"]
+            let start_id = slot_dict["start_id"]
+            let elem = document.createElement("div");
+            elem.id = slot_dict["id"];
+            elem.innerHTML = hover_info;
+            elem.classList.add("text-in-reservation")
+            elem.title = hover_info_plain_text;
+
+            width = (document.getElementById('2-1-9').getBoundingClientRect().width * multiplier)
+            height = document.getElementById('2-1-9').getBoundingClientRect().height
+
+            elem.classList.add('carpool-booked-slot')
+            elem.style.width = width + 'px';
+            elem.style.height = height + 'px';
+            
+            elem.addEventListener("click", editReservation)
+            elem.myParam = hover_info;
+
+            console.log(start_id);
+            document.getElementById(start_id).appendChild(elem);
+        }
+    }
+
+    function resizeBars() {
+        document.querySelectorAll('.carpool-booked-slot').forEach(e => e.remove());
+        
+        fillSlots({{list_of_dicts|safe}});
+    }
+
+    function editReservation(e) {
+
+        var y = window.outerHeight / 2 + window.screenY - (H / 2)
+        var x = window.outerWidth / 2 + window.screenX - (W / 2)
+
+        window.open('{% url 'edit_reservation' '111' %}'.replace("111", e.target.id),'popup', 'width=' + POPUP_WIDTH + ', height=' + POPUP_HEIGHT + ', top=' + y + ', left=' + x)
+    }
+
+window.addEventListener('keydown', event => {
+    if (event.keyCode == 37) {
+        window.open("{% url 'carpool_calendar' year week_n|add:'-1' %}", "_self");
+    }
+    if (event.keyCode == 39) {
+        window.open("{% url 'carpool_calendar' year week_n|add:'1' %}", "_self");
+    }
+  })
+
+</script>
+{% endblock %}

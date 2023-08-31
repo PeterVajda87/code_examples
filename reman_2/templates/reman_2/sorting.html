@@ -1,0 +1,207 @@
+{% extends 'reman_2/base.html' %}
+
+{% load reman_2_extras %}
+
+{% block style %}
+<style>
+
+    .highlighted {
+        background-color: white;
+        color: black;
+    }
+    .wrapper {
+        display: flex;
+        flex-flow: column;
+        max-width: 100vw;
+        overflow: auto;
+    }
+
+    div {
+        color: white;
+    }
+
+    table {
+        position: relative;
+        top: 5vh;
+        max-height: 95vh;
+        width: 100vw;
+        overflow: auto;
+        width: 100vw;
+        max-width: 100%;
+        border: 1px solid lightgray;
+        border-collapse: collapse;
+        color: white;
+        font-size: small;
+        table-layout: fixed;
+        background-color: hsla(100, 50%, 5%, .9);
+    }
+
+    th { 
+        text-align: left;
+    }
+
+    thead {
+        position: sticky;
+        top: 0vh;
+        background-color: black;
+        width: 100vw;
+        max-width: 100%;
+    }
+
+    tr {
+        border-bottom: 1px solid lightgray;
+    }
+
+    td {
+        padding: 0 .25rem;
+        cursor: pointer;
+    }
+
+    td {
+        border-right: 1px solid lightgray;
+    }
+
+</style>
+{% endblock %}
+
+{% block scripts-top %}
+<script src="/static/xlsx.full.min.js"></script>
+{% endblock %}
+
+{% block body %}
+<div class="wrapper">
+    <table id="table">
+        <thead>
+            <tr>
+                <th>Zákazník</th>
+                <th>Materiál</th>
+                <th>Materiálový výsledek</th>
+                <th>Skupina materiálů</th>
+                <th>Skupinový výsledek</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for result in results %}
+            <tr>
+                <td>{{result.customer.customer_name}}</td>
+                <td onmouseover="highlightRow(this)" onmouseout="dehighlightRow(this)" data-material-group="{{result.material.material_group.material_group}}" data-type="material" data-customer="{{result.material.customer.customer_name}}">{{result.material.material_number}}</td>
+                <td>{{result.result|to_percent}}</td>
+                <td onmouseover="highlightRow(this)" onmouseout="dehighlightRow(this)" data-customer="{{result.customer.customer_name}}" data-type="material-group" class="material-group-cell">{{result.material.material_group.material_group}}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+
+document.addEventListener('keydown', (e) => {
+        if (String.fromCharCode(e.keyCode).toLowerCase() === 'x') {
+            let workbook = XLSX.utils.table_to_book(document.getElementById("table"));
+            XLSX.writeFile(workbook, "Sorting.xlsb");
+        }
+    })
+
+function highlightRow(cell) {
+    if (cell.dataset.type == 'material') {
+        cell.classList.add('highlighted');
+        cell.previousElementSibling.classList.add('highlighted');
+        cell.nextElementSibling.classList.add('highlighted');
+    }
+
+    if (cell.dataset.type =='material-group') {
+        cell.classList.add('highlighted');
+        cell.nextElementSibling.classList.add('highlighted');
+        let cells = Array.from(cell.parentElement.parentElement.querySelectorAll(`td[data-type="material"][data-customer="${cell.dataset.customer}"][data-material-group="${cell.textContent}"]`));
+        cells.forEach(_ => {
+            console.log('hajlajting')
+            highlightRow(_);
+        })
+    }
+}
+
+function dehighlightRow(cell) {
+    if (cell.dataset.type == 'material') {
+        cell.classList.remove('highlighted');
+        cell.nextElementSibling.classList.remove('highlighted');
+        cell.previousElementSibling.classList.remove('highlighted');
+        cell.nextElementSibling.classList.remove('highlighted');
+    }
+
+    if (cell.dataset.type == 'material-group') {
+        cell.classList.remove('highlighted');
+        cell.nextElementSibling.classList.remove('highlighted');
+        let cells = Array.from(cell.parentElement.parentElement.querySelectorAll(`td[data-type="material"][data-customer="${cell.dataset.customer}"][data-material-group="${cell.textContent}"]`));
+        cells.forEach(_ => {
+            dehighlightRow(_);
+        })
+    }
+}
+
+const materialGroupsResults = {{material_groups_results|safe}}
+
+window.addEventListener('DOMContentLoaded', createMaterialGroupResult)
+
+function createMaterialGroupResult() {
+    let materialGroupCells = document.querySelectorAll('td.material-group-cell');
+    let rows = Array.from(document.querySelector('tbody').querySelectorAll('tr'));
+    let indices = new Array();
+    indices.push(0);
+    materialGroupCells.forEach((cell, index) => {
+        if (index > 0) {
+            let previousValue = materialGroupCells[index - 1].textContent;
+            let currentValue = cell.textContent;
+            if (previousValue != currentValue) {
+                indices.push(index);
+            }
+        }
+    })
+    indices.push(rows.length)
+
+    indices.forEach((idxValue, index) => {
+        
+        /// following is to merge existing cells with material group
+        try {
+
+            let materialGroupCell = rows[idxValue].querySelector('td.material-group-cell');
+            let materialGroupValue = materialGroupCell.textContent;
+            let customerData = materialGroupCell.dataset.customer;
+            for (let i = indices[index]; i < indices[index + 1]; i++) {
+                rows[i].querySelector('td.material-group-cell').remove();
+            }
+            let spannedCellMaterialGroup = document.createElement('td');
+            spannedCellMaterialGroup.dataset.materialGroup = materialGroupValue;
+            spannedCellMaterialGroup.addEventListener('mouseover', (e) => {
+                highlightRow(e.target);
+            });
+            spannedCellMaterialGroup.addEventListener('mouseout', (e) => {
+                dehighlightRow(e.target);
+            });
+            spannedCellMaterialGroup.rowSpan = indices[index + 1] - indices[index];
+            spannedCellMaterialGroup.textContent = materialGroupValue;
+            spannedCellMaterialGroup.classList.add('spanned-cell');
+            spannedCellMaterialGroup.dataset.customer = customerData;
+            spannedCellMaterialGroup.dataset.type = 'material-group';
+            rows[idxValue].append(spannedCellMaterialGroup)
+            
+            /// following is to add spanned cell with material group result
+            let spannedCell = document.createElement('td');
+            spannedCell.classList.add('material-group-result');
+            let materialGroup = rows[idxValue].querySelector('td.spanned-cell').textContent;
+            let customer = rows[idxValue].querySelector('td.spanned-cell').dataset.customer;
+            spannedCell.textContent = `${(parseFloat(materialGroupsResults[`${customer}${materialGroup}`]) * 100).toFixed(2)}%`;
+            spannedCell.rowSpan = indices[index + 1] - indices[index];
+            rows[idxValue].append(spannedCell);
+            console.log(rows[idxValue].querySelector('td.spanned-cell').textContent);
+        } catch {
+            console.log('something went wrong')
+        }
+    })
+}
+</script>
+{% endblock %}

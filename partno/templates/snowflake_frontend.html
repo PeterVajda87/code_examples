@@ -1,0 +1,19 @@
+<table>
+    <thead>
+        <tr>
+            {% for column in column_names %}
+            <th>{{column.3}}</th>
+            {% endfor %}
+        </tr>
+    </thead>
+
+    <tbody>
+        {% for row in query_data %}
+        <tr>
+            {% for column in row %}
+            <td>{{column|default_if_none:""}}</td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>

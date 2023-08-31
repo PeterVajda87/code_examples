@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <title></title>
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        {% load static %}
+        <link href="{% static 'kvalita/style.css' %}" rel="stylesheet" type="text/css"></link>
+
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.js"></script>
+        </head>
+    <body>
+    <!-- ======================================== form ====================================== -->
+        <div id="header">
+            <form method="POST" name="header_form">{% csrf_token %}
+                <div id="items_from_form">
+                    
+                    <div id="machine_select_div" class="form_item_boxes">
+                        <label for="machine_select" id="label">Machine</label>
+                        <input type="text" id="machine_sel" list="machine_select" class="form_items" placeholder="Select machine" name="machine_sel" required>
+                            <datalist id="machine_select">
+                            </datalist>
+                    </div>
+
+
+                    <div id="date_from_div" class="form_item_boxes">
+                        <label for="date_from" id="label">Date From</label>
+                        <input type="date" name="date_from" id="date_from" class="form_items" {% if date_from %} value="{{date_from}}" {% else %} value="2022-04-01" {% endif %} max="{{date_today|date:'Y-m-d'}}">
+                    </div>
+
+                    <div id="date_to_div" class="form_item_boxes">
+                        <label for="date_to" id="label">Date To</label>
+                        <input type="date" name="date_to" id="date_to" class="form_items" {% if date_to %} value="{{date_to}}" {% else %} value="{{date_today|date:'Y-m-d'}}" {% endif %} max="{{date_today|date:'Y-m-d'}}">
+                    </div>
+
+                    <div class="form_item_boxes">
+                        <input type="button" id="form_submit" value="next" onclick="submitForm()">
+                    </div>
+                </div>
+            </form>
+        </div>
+    
+    <!-- ======================================== graphs ====================================== -->
+    <div id="hideWrapp">
+        <div id="nadpis">
+            <div id="machine_nadpis" class="nadpisGraph"></div>
+            <div id="NOK_nadpis" class="nadpisGraph"></div>
+        </div> 
+        <div id ="hideContainer">
+            <div id="hideChart1">   
+                <canvas id="chart"></canvas>
+            </div>
+            
+            <div id="hideChart2">
+                <canvas id="chartSecond" ></canvas>
+                <div id="chartLoader"></div>
+                <div id="specificNokNone">Selected wrong item in previous chart</div> 
+            </div>            
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr)">
+            <input type="button" class="chart_submit" id="chart_submit1" value="Export to XLSX" style="margin-left: 5vw;">
+            <input type="button" class="chart_submit" id="chart_submit2" value="Export to XLSX" style="margin-left: 3vw;">
+        </div>
+    </div>
+    <div id="dataNone">Select Machine</div>
+    <div id="loader">
+        <div id="loaderSpin"></div>
+        <img id="imgLogo" src="/static/ImgForAll/logoBlack.svg" alt="" id="img">
+    </div>
+    
+
+</body>
+    <!-- ======================================== script ====================================== -->
+    <script type="text/javascript" >
+
+
+        let data_machine = {{data_for_selects | safe}}
+        console.log(data_machine)
+
+        function dataNoneText(text){
+            document.getElementById("dataNone").innerText = text;
+        }
+
+        //****** create Partno options by key ******
+        data_machine_vals = data_machine;
+
+        data_machine_vals.forEach((element, index)  => {
+            let newOption = document.createElement('option');
+            
+            newOption.textContent = data_machine_vals[index]
+            newOption.value = data_machine_vals[index]
+            document.getElementById("machine_select").append(newOption);
+        });
+            
+                                
+        //****** funcion when submit form, includes validation ******
+        function submitForm() {
+            document.getElementById('dataNone').style.display = "block";
+            document.getElementById("hideWrapp").style.display = "none";
+            let val_machine = document.getElementById("machine_sel").value;
+            let val_date_from = document.getElementById("date_from").value;
+            let val_date_to = document.getElementById("date_to").value;
+
+                if(val_machine.length > 0 )
+                {
+                    if(val_date_from <= val_date_to){
+                        sendData().then(data => acceptedData(data));
+                    }
+                    else
+                    {   
+                        labelDataNone = "Date From: " + val_date_from + " is greater than " + "Date To: " + val_date_to;
+                        dataNoneText(labelDataNone);
+                    }
+                }
+                else
+                {
+                    labelDataNone = "Empty machine does not exist";
+                    dataNoneText(labelDataNone);
+                }
+                
+        }
+
+         //****** async function to send data ******
+        const url = "{% url 'kvalita:kvalita' %}" // pozn pro budouciho simona kdyz je namespace, tak url bude ve formatu "url 'namespace:name'"
+
+        async function sendData() {
+            document.getElementById('dataNone').style.display = "none";
+            document.getElementById("hideWrapp").style.display = "none";
+            document.getElementById('loader').style.display = "block";
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    'date_from': document.getElementById('date_from').value,
+                    'date_to': document.getElementById('date_to').value,
+                    'machine_sel': document.getElementById('machine_sel').value,
+                })
+            })
+            
+            
+            return response.json();
+        }
+        //****** what to do when i have data from response ******
+        var dataDotova = ""
+        function acceptedData(data) {
+            dataDotova = data;
+            
+            document.getElementById('loader').style.display = "none";
+            
+            
+
+            
+            
+            if(data.line_y.length > 0){
+                graf(data)
+                let machineNazev = document.getElementById("machine_sel").value;
+                document.getElementById("machine_nadpis").innerHTML = machineNazev
+                document.getElementById("hideWrapp").style.display = "block";
+                document.getElementById("dataNone").style.display = "none";
+                document.getElementById("NOK_nadpis").style.display = "none";
+                document.getElementById("chart_submit2").style.display = "none";
+                document.getElementById("chartSecond").style.display = "none";
+
+            }else{
+                document.getElementById("dataNone").style.display = "block";
+                dataNoneText("No data for graph")
+            }
+            
+        }
+
+        // // ======================================== charts ======================================
+        function graf(dataDotova){
+            var dataPareto = {
+                labels: [],
+                datasets: [{
+                    type: "line",
+                    label: "pareto %",
+                    borderColor: "#4F517D",
+                    backgroundColor: "#4F517D",
+                    pointBorderWidth: 5,
+                    fill: false,
+                    data: [],
+                    yAxisID: 'y-axis-2'
+                },
+                {
+                    type: "bar",
+                    label: "chyby", //popisek toolbox
+                    backgroundColor: "#CDA8C5",
+                    data: [],
+                    yAxisID: 'y-axis-1'
+                }]
+            };
+            
+            let dataForGraph = dataDotova.line_y.sort(function(a,b) {return b[1] - a[1]});
+            
+            let soucet = 0;
+            let localProcento = 0;
+            let procenta = [];            
+
+            let prom = 0
+
+            for(let i = 0; i < dataForGraph.length; i++){
+                soucet += dataForGraph[i][1]
+                dataPareto.datasets[1].data.push(dataForGraph[i][1])
+                dataPareto.labels.push(dataForGraph[i][0])
+            }
+
+
+            for(let i = 0; i < dataForGraph.length; i++){
+                prom = prom + dataForGraph[i][1];
+                localProcento = Math.round((prom/soucet) * 100)
+                dataPareto.datasets[0].data.push(localProcento)
+            }    
+                
+            var optionsPareto = {
+                scales: {
+                    xAxes: [{
+                        stacked: true,
+                        scaleLabel: {
+                            display: false,
+                            labelString: "chyby" //popisek dole 
+                        }
+                    }],
+
+                    yAxes: [{
+                        type: "linear",
+                        position: "left",
+                        id: "y-axis-1",
+                        stacked: true,
+                        ticks: {
+                            suggestedMin: 0
+                        },
+                        scaleLabel: {
+                            display: false,
+                            labelString: "pocet dilu"
+                        }
+                    },{
+                        type: "linear",
+                        position: "right",
+                        id: "y-axis-2",
+                        ticks: {
+                            suggestedMin: 0,
+                            callback: function(value) {
+                                return value + "%";
+                            }
+                        },
+                        scaleLabel: {
+                            display: false,
+                            labelString: "procenta "
+                        }
+                    }]
+                }
+            };
+        
+            var optionsLine = {
+                scales: {
+                    xAxes: [{
+                        stacked: true,
+                        scaleLabel: {
+                            display: false,
+                            labelString: "chyby" //popisek dole 
+                        }
+                    }],
+
+                    yAxes: [{
+                        type: "linear",
+                        position: "left",
+                        id: "y-axis-1",
+                        stacked: true,
+                        ticks: {
+                            suggestedMin: 0
+                        },
+                        scaleLabel: {
+                            display: false,
+                            labelString: "pocet dilu"
+                        }
+                    }]
+                }
+            };
+
+            document.getElementById("chart").remove();
+            let canvas = document.createElement('canvas');
+            canvas.id = "chart" 
+            document.getElementById("hideChart1").append(canvas)
+            
+            var ctx = document.getElementById("chart");
+            
+
+            const myChart = new Chart(ctx, {
+                type: 'bar',
+                data: dataPareto,
+                options: optionsPareto
+            });
+
+            function clickHandler(click){
+                const points = myChart.getElementsAtEventForMode(click, 'nearest', {
+                    intersect: true}, true);
+                if(points.length){
+                    sendGraphInfo(points).then(data => acceptedGraphData(data, points));                    
+                }
+            };
+
+            const url = "{% url 'kvalita:kvalita' %}"
+            async function sendGraphInfo(points) {
+                
+                document.getElementById("chartSecond").style.display = "none";
+                document.getElementById('chartLoader').style.display = "block";
+                document.getElementById("NOK_nadpis").style.display = "none"
+                document.getElementById("chart_submit2").style.display = "none"
+                document.getElementById("specificNokNone").style.display = "none"
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        'date_from': document.getElementById('date_from').value,
+                        'date_to': document.getElementById('date_to').value,
+                        'machine_sel': document.getElementById('machine_sel').value,
+                        'NOK': points[0]._model.label
+                    })
+                })
+                
+                
+                return response.json();
+            }
+
+            function acceptedGraphData(data, points) {
+                document.getElementById('chartLoader').style.display = "none";
+                if(points[0]._model.label != undefined){
+                
+                document.getElementById("hideChart2").style.display = "block";
+                document.getElementById("chartSecond").style.display = "block";
+                document.getElementById("NOK_nadpis").style.display = "block"
+                document.getElementById("chart_submit2").style.display = "block"
+
+                document.getElementById("chartSecond").remove();
+                let canvas = document.createElement('canvas');
+                canvas.id = "chartSecond" 
+                document.getElementById("hideChart2").append(canvas)
+            
+                var ctx = document.getElementById("chart");
+                
+                document.getElementById("NOK_nadpis").innerHTML = points[0]._model.label
+
+                secondGraph(data) 
+                }
+                else{
+                document.getElementById("specificNokNone").style.display = "block"
+            }
+
+            }
+            
+            ctx.onclick = clickHandler
+            chartSubmit1 = document.getElementById("chart_submit1")
+            chartSubmit1.addEventListener("click", savePareto);
+
+            function savePareto(){
+                var link = document.createElement("a");
+                link.setAttribute("href", 'http://10.49.34.115/kvalita/noks_export');
+                document.body.appendChild(link);
+                link.click();
+            }
+
+
+            function secondGraph(data){
+                    //data for line 
+                var dataLine = {
+                    labels: [],
+                    datasets: [{
+                        type: "bar",
+                        label: "chyby", //popisek toolbox
+                        borderColor: "#4F517D",
+                        backgroundColor: "#4F517D",
+                        data: [],
+                        yAxisID: 'y-axis-1'
+                    }]
+                };
+
+                console.log(data.nok_dates[1][1])
+                for(let i = 0; i < data.nok_dates[1].length; i++){
+                    dataLine.labels.push(data.nok_dates[1][i])
+                    dataLine.datasets[0].data.push(data.nok_dates[0][i])
+                }
+
+                //optionLine
+            
+                var optionsLine = {
+                    scales: {
+                        xAxes: [{
+                            stacked: true,
+                            scaleLabel: {
+                                display: false,
+                                labelString: "chyby" //popisek dole 
+                            }
+                        }],
+
+                        yAxes: [{
+                            type: "linear",
+                            position: "left",
+                            id: "y-axis-1",
+                            stacked: true,
+                            ticks: {
+                                suggestedMin: 0
+                            },
+                            scaleLabel: {
+                                display: false,
+                                labelString: "pocet dilu"
+                            }
+                        }]
+                    }
+                };
+                var grafikCanv = document.getElementById("chartSecond")
+
+                const secondChart = new Chart(grafikCanv, {
+                        type: 'bar',
+                        data: dataLine,
+                        options: optionsLine
+                    })
+
+
+                chartSubmit2 = document.getElementById("chart_submit2")
+                chartSubmit2.addEventListener("click", saveLine);
+                chartSubmit2.data = dataLine;
+                chartSubmit2.dataset = 0;
+
+                function saveLine(){
+                    var link = document.createElement("a");
+                    link.setAttribute("href", 'http://10.49.34.115/kvalita/specific_nok_export');
+                    document.body.appendChild(link);
+                    link.click();
+                }
+            }
+        }
+
+    </script>
+</html>

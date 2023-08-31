@@ -1,0 +1,666 @@
+{% extends 'dms/base.html' %}
+
+{% block style %}
+    <style>
+        .wrapper {
+            grid-column: 2/3;
+            grid-row: 2/3;
+            display: flex;
+            flex-flow: row;
+            flex-wrap: nowrap;
+            width: 100%;
+            height: 100%;
+            column-gap: 0.5vw;
+            background-color: aliceblue;
+            overflow: hidden;
+        }
+
+        .operators-wrapper {
+            display: flex;
+            flex-flow: column;
+            flex-wrap: nowrap;
+            width: 12%;
+            height: 100%;
+            background-color: rgba(100, 0, 100, 0.1);
+            position: relative;
+        }
+
+        .line-wrapper {
+            display: flex;
+            flex-flow: column;
+            flex-wrap: nowrap;
+            flex-grow: 1;
+            max-width: 100%;
+            flex-basis: 0px;
+            flex-shrink: 1;
+            height: 100%;
+        }
+
+        .line-heading {
+            display: flex;
+            flex-flow: row;
+            height: 5%;
+            background-color: gray;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 2rem;
+            user-select: none;
+        }
+
+        .operators-heading {
+            height: 7.5%;
+            padding: 0 0.25rem;
+            display: flex;
+            flex-flow: row;
+            border-bottom: 1px solid lightgray;
+        }
+
+        .operators-footer {
+            height: 7.5%;
+            margin-top: auto;
+            padding: 0 0.25rem;
+            display: flex;
+            flex-flow: row;
+            border-bottom: 1px solid lightgray;
+        }
+
+        .operators-column {
+            padding: 1rem 0.5rem;
+            display: flex;
+            flex-flow: row;
+            flex-wrap: wrap;
+            row-gap: 2vh;
+            overflow: auto;
+            max-height: 80vh;
+        }
+
+        .line-column {
+            display: flex;
+            flex-flow: column;
+            height: 95%;
+            background-color: rgba(0,0,255,0.05);
+        }
+
+        .timeline-slot {
+            border: 1px dashed rgba(0,0,0,0.1);
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(2vw, 1fr));
+            grid-auto-rows: 1fr;
+            position: relative;
+            padding-left: 1vw;
+            align-items: center;
+        }
+
+        .timeline-slot__dragover-active {
+            background-color: rgba(0,0,255,0.25);
+        }
+
+        .timeline-slot__time-indicator {
+            font-size: clamp(8px, 1.25vh, 24px);
+            display: flex;
+            flex-flow: column;
+            justify-content: space-between;
+            padding: 0.1rem;
+            color: darkblue;
+            position: absolute;
+            height: inherit;
+        }
+
+        img {
+            max-width: 100%;
+            max-height: 100%;
+            padding: 0.25rem;
+            cursor: pointer;
+        }
+
+        .plus-minus {
+            font-size: clamp(10px, 2vh, 20px);
+            font-weight: bold;
+            color: black;
+            width: 50%;
+            display: flex;
+            flex-flow: row;
+            flex-wrap: nowrap;
+            cursor: pointer;
+            height: 100%;
+            justify-content: space-around;
+        }
+
+        .plus-minus-group {
+            display: flex;
+            flex-flow: column;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+        
+        .plus-minus-group > div {
+            flex-grow: 1;
+            flex-shrink: 1;
+            flex-basis: 0px;
+            display: flex;
+            justify-content: center;
+            width: 100%;
+            border: 1px dashed lightgray;
+            flex-flow: column;
+            align-items: center;
+            user-select: none;
+        }
+
+        .operators-count {
+            background-color: white;
+            font-size: clamp(18px, 2.5vh, 40px);
+            width: 25%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .operator {
+            min-width: 33.3%;
+            flex-shrink: 1;
+            flex-basis: 0px;
+            cursor: pointer;
+            background-image: url('/static/dms/operator.png');
+            background-size: contain;
+            aspect-ratio: 1 / 1;
+            transform: translate(0, 0);
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+        }
+
+        .operator-timeline-icon {
+            cursor: pointer;
+            background-image: url('/static/dms/operator.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            transform: translate(0, 0);
+            aspect-ratio: 1 / 1;
+        }
+
+        .line-heading__dragover-active {
+            background-color: darkblue;
+        }
+
+        .worker-time-fund {
+            background-color: gray; 
+            color: white; 
+            border-radius: 5px; 
+            width: 100%; 
+            text-align: center; 
+            font-size: clamp(14px, 2vh, 30px); 
+            border: 1px solid white;
+            pointer-events: none;
+            user-select: none;
+        }
+        
+        .shift-8 {
+            filter:hue-rotate(0);
+        }
+
+        .shift-12 {
+            filter: hue-rotate(180deg);
+        }
+
+        .absences {
+            margin-top: auto;
+            height: 8vh;
+            background-color: pink;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+    </style>
+
+    {% endblock %}
+
+    {% block page_title %} > Přítomnost na linkách {% endblock %}
+
+    {% block main-content %}
+
+    <div class="wrapper">
+        <div class="operators-wrapper">
+            <div class="operators-heading">
+                <div style="width: 33%">
+                    <img src="/static/dms/operator.png" onclick="changeShiftModel(this)" draggable="false">
+                </div>
+                <div class="plus-minus">
+                    <div class="plus-minus-group">
+                        <div onclick="addOperatorCount(1)">+1</div>
+                        <div onclick="removeOperatorCount(1)">-1</div>
+                    </div>
+                    <div class="plus-minus-group">
+                        <div onclick="addOperatorCount(5)">+5</div>
+                        <div onclick="removeOperatorCount(5)">-5</div>
+                    </div>
+                </div>
+                <div class="operators-count" id="operators-count">0</div>
+            </div>
+            <div class="operators-column" id="operators-column"></div>
+            <div class="absences" id="absences">Absence: <span style="padding: 0 1vw" id="absences-count"></span></div>
+        </div>
+
+        {% for line in lines %}
+        <div class="line-wrapper">
+            <div class="line-heading" data-line="{{line.0}}" ondragover="dragover_handler(event)" ondrop="drop_handler(event)" ondragleave="dragleave_handler(event)">{{line.0}}</div>
+            <div class="line-column" data-hours="{{line.1}}" data-line="{{line.0}}"></div>
+        </div>
+        {% endfor %}  
+    </div>
+
+<template id="timeline-slot-template">
+    <div class="timeline-slot" ondrop="drop_handler(event)">
+    </div>
+</template>
+
+<template id="operator-template">
+    <div class="operator shift-8" draggable="true" ondragstart="dragstart_handler(event)" data-hours-available="8" data-initial-hours-available="8" onclick="deleteOperator(this)">
+        <span class="worker-time-fund" data-worker-id="1">8 h</span>
+    </div>
+</template>
+
+{% endblock %}
+
+{% block script-bottom %}
+    
+<script>
+    var intervalsAvailable = 0;
+    var currentWorkerId = 0;
+    var desiredTime = null;
+    const area = "{{area}}";
+    const timelineUrl = "{% url 'dms:get_timeline' %}";
+    const absencesUrl = "{% url 'dms:get_absences_count' %}";
+    const processOperatorUrl= "{% url 'dms:process_operator' %}";
+    const forceKPIrecalculationUrl = 'http://10.49.34.122:8000/api/force_recalculation';
+    const getOperatorsUrl = "{% url 'dms:get_operators' %}";
+    const intervalLength = 60 * 60 * 1000;
+    const lineColumns = document.querySelectorAll("[data-line]:not(.line-heading)");
+    var currentShiftModel = 8;
+
+    async function loadOperators(line) {
+        let timelineSlots = document.querySelectorAll(`div.timeline-slot[data-line="${line.dataset.line}"]`);
+        timelineSlots.forEach(async timelineSlot => {
+            let line = timelineSlot.dataset.line;
+            let intervalStart = timelineSlot.dataset.intervalStart;
+            let intervalEnd = timelineSlot.dataset.intervalEnd;
+
+            const resp = await fetch(getOperatorsUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 'line': line, 'interval_start': intervalStart, 'interval_end': intervalEnd })
+
+            })
+
+            data = await resp.json()
+
+            if (data['data'].length > 0) {
+                data['data'].forEach(async operator => {
+                    let workerId = operator[0];
+                    if (workerId > currentWorkerId) {
+                        currentWorkerId = workerId + 1;
+                    }
+                    let workerType = operator[1];
+                    await loadSingleOperator(workerId, workerType);
+                    let operatorIcon = document.createElement('div');
+                    operatorIcon.dataset.workerId = workerId;
+                    operatorIcon.classList.add('operator-timeline-icon');
+                    operatorIcon.classList.add(`shift-${workerType}`)
+                    operatorIcon.addEventListener('click', removeOperator);
+                    timelineSlot.append(operatorIcon);
+                })
+            }
+        })
+    }
+
+    function loadSingleOperator(workerId, workerType) {
+        let operator = document.querySelector(`div[class*="operator"][data-worker-id="${workerId}"]`);
+        if (operator) {
+            operator.dataset.hoursAvailable = parseInt(operator.dataset.hoursAvailable) - 1;
+            operator.querySelector('span').textContent = `${operator.dataset.hoursAvailable} h`;
+        } else {
+            document.getElementById('operators-count').textContent = parseInt(document.getElementById('operators-count').textContent) + 1;
+            const operatorToClone = document.getElementById('operator-template');
+            const operatorClone = operatorToClone.content.cloneNode(true);
+            let clonedOperator = operatorClone.querySelector('div');
+            clonedOperator.draggable = 'true';
+
+            if (workerType == 8) {
+                clonedOperator.classList.add('shift-8');
+                clonedOperator.dataset.hoursAvailable = 7;
+                clonedOperator.dataset.initialHoursAvailable = 8;
+                clonedOperator.querySelector('span').textContent = "1 h"
+            }
+
+            if (workerType == 12) {
+                clonedOperator.classList.add('shift-12');
+                clonedOperator.dataset.hoursAvailable = 11;
+                clonedOperator.dataset.initialHoursAvailable = 12;
+                clonedOperator.querySelector('span').textContent = "1 h"
+            }
+
+            clonedOperator.dataset.workerId = workerId;
+            clonedOperator.querySelector('span').dataset.workerId = workerId;
+
+            document.getElementById('operators-column').appendChild(clonedOperator);
+        }
+    }
+
+    function deleteOperator(el) {
+        let workerId = el.dataset.workerId;
+        let workerSource = document.querySelector(`div.operator[data-worker-id="${workerId}"]`);
+        let workerType = workerSource.dataset.initialHoursAvailable;
+        document.querySelectorAll(`div[data-worker-id="${workerId}"][class*="operator-timeline-icon"]`).forEach(async iconToRemove => {
+            let timelineSlot = iconToRemove.parentElement;
+            await processOperator({ type: 'removal', line: timelineSlot.dataset.line, workerId: workerId, workerType: workerType, intervalStart: timelineSlot.dataset.intervalStart, intervalEnd: timelineSlot.dataset.intervalEnd })
+            iconToRemove.remove();
+        })
+        el.remove();
+        document.getElementById('operators-count').textContent = parseInt(document.getElementById('operators-count').textContent) - 1;
+
+    }
+
+
+    function changeShiftModel(el) {
+        if (currentShiftModel == 8) {
+            el.classList.remove('shift-8');
+            el.classList.add('shift-12');
+            currentShiftModel = 12;
+        } else {
+            el.classList.remove('shift-12');
+            el.classList.add('shift-8');
+            currentShiftModel = 8;
+        }
+    }
+
+    function addOperatorCount(operatorsToAdd) {
+        for (i = 1; i <= operatorsToAdd; i++) {
+            currentWorkerId += 1
+            document.getElementById('operators-count').textContent = parseInt(document.getElementById('operators-count').textContent) + 1;
+            const operatorToClone = document.getElementById('operator-template');
+            const operatorClone = operatorToClone.content.cloneNode(true);
+            let clonedOperator = operatorClone.querySelector('div');
+            clonedOperator.draggable = 'true';
+    
+            if (currentShiftModel == 8) {
+                clonedOperator.classList.add('shift-8');
+                clonedOperator.classList.remove('shift-12');
+                clonedOperator.dataset.hoursAvailable = 8;
+                clonedOperator.dataset.initialHoursAvailable = 8;
+                clonedOperator.querySelector('span').textContent = "8 h"
+            }
+            
+            if (currentShiftModel == 12) {
+                clonedOperator.classList.add('shift-12');
+                clonedOperator.classList.remove('shift-8');
+                clonedOperator.dataset.hoursAvailable = 12;
+                clonedOperator.dataset.initialHoursAvailable = 12;
+                clonedOperator.querySelector('span').textContent = "12 h"
+            }
+    
+            clonedOperator.dataset.workerId = currentWorkerId;
+            clonedOperator.querySelector('span').dataset.workerId = currentWorkerId;
+            document.getElementById('operators-column').appendChild(clonedOperator);
+        }
+    }
+
+    function removeOperatorCount(operatorsToRemove) {
+        for (i = 1; i <= operatorsToRemove; i++) {
+            if (parseInt(document.getElementById('operators-count').textContent) > 0) {
+                document.getElementById('operators-count').textContent = parseInt(document.getElementById('operators-count').textContent) - 1;
+            }
+    
+            let operators = document.querySelectorAll('div.operator');
+            let lastOperator = operators[operators.length - 1];
+            let workerType = lastOperator.dataset.initialHoursAvailable;
+            let workerId = lastOperator.dataset.workerId
+            document.querySelectorAll(`div[data-worker-id="${workerId}"][class*="operator-timeline-icon"]`).forEach(async iconToRemove => {
+                let timelineSlot = iconToRemove.parentElement;
+                await processOperator({ type: 'removal', line: timelineSlot.dataset.line, workerId: workerId, workerType: workerType, intervalStart: timelineSlot.dataset.intervalStart, intervalEnd: timelineSlot.dataset.intervalEnd })
+                iconToRemove.remove();
+            })
+            lastOperator.remove();
+        }
+    }
+
+    async function removeOperator(event) {
+        let workerId = event.target.dataset.workerId;
+        let workerSource = document.querySelector(`div.operator[data-worker-id="${workerId}"]`);
+        let workerType = workerSource.dataset.initialHoursAvailable;
+        let line = event.target.parentElement.dataset.line;
+        let intervalStart = event.target.parentElement.dataset.intervalStart;
+        let intervalEnd = event.target.parentElement.dataset.intervalEnd;
+
+        await processOperator({ type: 'removal', line: line, workerId: workerId, workerType: workerType, intervalStart: intervalStart, intervalEnd: intervalEnd })
+
+        event.target.remove();
+        workerSource.dataset.hoursAvailable = parseFloat(workerSource.dataset.hoursAvailable) + intervalLength / 3_600_000;
+        workerSource.querySelector('span').textContent = `${workerSource.dataset.hoursAvailable} h`;
+        workerSource.draggable = true;
+    }
+
+    function drop_handler(event) {
+        let workerId = event.dataTransfer.getData('worker-id');
+        let workerSource = document.querySelector(`div.operator[data-worker-id="${workerId}"]`);
+        let workerType = workerSource.dataset.initialHoursAvailable;
+        let activeIntervals = document.querySelectorAll('div.timeline-slot__dragover-active');
+        activeIntervals.forEach(async ai => {
+            let operatorIcon = document.createElement('div');
+            operatorIcon.dataset.workerId = workerId;
+            operatorIcon.classList.add('operator-timeline-icon');
+            operatorIcon.addEventListener('click', removeOperator);
+            ai.append(operatorIcon);
+            await processOperator({type: 'addition', line: ai.dataset.line, workerId: workerId, workerType: workerType, intervalStart: ai.dataset.intervalStart, intervalEnd: ai.dataset.intervalEnd})
+            ai.classList.remove('timeline-slot__dragover-active');
+            if (workerSource.classList.contains('shift-8')) {
+                operatorIcon.classList.add('shift-8');
+            }
+
+            if (workerSource.classList.contains('shift-12')) {
+                operatorIcon.classList.add('shift-12');
+            }
+        });
+        let activeHeading = document.querySelector('div.line-heading__dragover-active');
+        if (activeHeading) {
+            activeHeading.classList.remove('line-heading__dragover-active');
+        }
+
+        let workerAvailableHours = workerSource.dataset.initialHoursAvailable;
+        let hoursToRemove = (document.querySelectorAll(`div.operator-timeline-icon[data-worker-id="${workerId}"]`).length * intervalLength) / 3_600_000;
+        workerSource.dataset.hoursAvailable = workerAvailableHours - hoursToRemove;
+        workerSource.querySelector('span').textContent = `${workerSource.dataset.hoursAvailable} h`;
+        if (workerSource.dataset.hoursAvailable == "0") {
+            workerSource.draggable = false;
+        } else {
+            workerSource.draggable = true;
+        }
+
+    }
+
+    function dragover_handler(event) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+
+        if (event.target.classList.contains('line-heading')) {
+            let lineHeading = event.target;
+            lineHeading.classList.add('line-heading__dragover-active');
+            let lineIntervals = document.querySelectorAll(`div.timeline-slot[data-line="${event.target.dataset.line}"]`);
+            lineIntervals.forEach((lineInterval, index) => {
+                if (index <= intervalsAvailable - 1) {
+                    lineInterval.classList.add('timeline-slot__dragover-active');
+                } 
+            })
+        }
+
+        if (event.target.classList.contains('timeline-slot')) {
+            let activeInterval = event.target;
+            activeInterval.classList.add('timeline-slot__dragover-active');
+            let intervalsBelow = document.querySelectorAll(`div.timeline-slot[data-line="${event.target.dataset.line}"]`);
+            let highlightedIntervals = 0;
+            intervalsBelow.forEach((lineInterval, index) => {
+                if (lineInterval.dataset.intervalStart > activeInterval.dataset.intervalStart) {
+                    if (highlightedIntervals < intervalsAvailable - 1) {
+                        lineInterval.classList.add('timeline-slot__dragover-active');
+                        highlightedIntervals += 1;
+                    }
+                }
+            })
+        }
+    }
+
+    function dragstart_handler(event) {
+        event.dataTransfer.setData("worker-id", event.target.dataset.workerId);
+        event.dataTransfer.effectAllowed = "move";
+        intervalsAvailable = parseFloat(event.target.dataset.hoursAvailable) * 3_600_000 / intervalLength;
+
+    }
+
+    function dragleave_handler(event) {
+        if (event.target.classList.contains('line-heading')) {
+            let lineHeading = event.target;
+            lineHeading.classList.remove('line-heading__dragover-active');
+            let lineIntervals = document.querySelectorAll(`div.timeline-slot[data-line="${event.target.dataset.line}"]`);
+            lineIntervals.forEach(li => li.classList.remove('timeline-slot__dragover-active'));
+        }
+
+        if (event.target.classList.contains('timeline-slot')) {
+            let activeInterval = event.target;
+            activeInterval.classList.remove('timeline-slot__dragover-active');
+            let intervalsBelow = document.querySelectorAll(`div.timeline-slot[data-line="${event.target.dataset.line}"]`);
+            intervalsBelow.forEach(li => {
+                if (li.dataset.intervalStart > activeInterval.dataset.intervalStart) {
+                    li.classList.remove('timeline-slot__dragover-active');
+                }
+            })
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.active-icon').forEach(icon => icon.classList.remove('active-icon'));
+        document.getElementById('presence-icon').classList.add('active-icon');
+        lineColumns.forEach(line => {
+            drawTimeline(line);
+        });
+    })
+
+    function triggerTimeChanged() {
+        desiredTime = window.localStorage.getItem('desiredDatetime');
+        document.querySelectorAll('div[class*="operator"][data-initial-hours-available]').forEach(op => op.remove());
+        document.getElementById('operators-count').textContent = 0;
+
+        lineColumns.forEach(line => {
+            drawTimeline(line);
+        });
+    }
+
+    async function drawTimeline(line) {
+        await getTimelineBounds(line)
+            .then(timeline => getIntervals(timeline))
+            .then(intervals => fillTimeline(intervals))
+            .then(line => loadOperators(line))
+            .then(() => loadAbsences(area))
+    }
+
+    async function fillTimeline(intervals) {
+        intervals['line'].innerHTML = "";
+        for (i = 0; i <= intervals['intervalsCount']; i++) {
+            const timelineSlotTemplate = document.getElementById('timeline-slot-template');
+            const timelineSlotClone = timelineSlotTemplate.content.cloneNode(true);
+            let timelineSlot = timelineSlotClone.querySelector('div');
+            timelineSlot.addEventListener('dragover', dragover_handler);
+            timelineSlot.addEventListener('dragleave', dragleave_handler);
+            timelineSlot.style.height = `${intervals['intervalHeight']}px`;
+            timelineSlot.dataset.line = intervals['line'].dataset.line;
+            timelineSlot.dataset.intervalStart = new Date(intervals['intervalsStart'].getTime() + i * intervals['intervalStep']).toISOString();
+            timelineSlot.dataset.intervalEnd = new Date(intervals['intervalsStart'].getTime() + (i + 1) * intervals['intervalStep']).toISOString();
+            
+            let timeIndicator = document.createElement('div');
+            timeIndicator.classList.add('timeline-slot__time-indicator')
+            let timeIndicatorValue = new Date(intervals['intervalsStart'].getTime() + i * intervals['intervalStep']);
+            let timeIndicatorHoursDiv = document.createElement('div');
+            timeIndicatorHoursDiv.textContent = `${timeIndicatorValue.getHours().toString().padStart(2, "0")}`
+            let timeIndicatorMinutesDIv = document.createElement('div');
+            timeIndicatorMinutesDIv.textContent = `${timeIndicatorValue.getMinutes().toString().padStart(2, "0")}`
+            timeIndicator.append(timeIndicatorHoursDiv, timeIndicatorMinutesDIv)
+            timelineSlot.appendChild(timeIndicator);
+
+            intervals['line'].appendChild(timelineSlot);
+        }
+
+        return intervals['line'];
+    }
+
+    async function getIntervals(timeline) {
+        timelineStart = new Date(timeline['timelineBounds']['start']);
+        timelineEnd = new Date(timeline['timelineBounds']['end']);
+        timelineIntervals = ((timelineEnd - timelineStart) / intervalLength) - 1;
+        intervalHeight = timeline['line'].offsetHeight / (timelineIntervals + 1);
+        return { 'intervalHeight': intervalHeight, 'intervalsCount': timelineIntervals, 'line': timeline['line'], 'intervalStep': intervalLength, 'intervalsStart': timelineStart }
+    }
+
+    async function getTimelineBounds(line) {
+        const resp = await fetch(timelineUrl, {
+            method: 'POST',
+            mode: 'cors',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({'line': line.dataset.line, 'desired-time': desiredTime ? desiredTime : new Date() })
+        });
+
+        let timelineBounds = await resp.json();
+        console.log(timelineBounds)
+
+        return { 'line': line, 'timelineBounds': timelineBounds };
+    }
+
+    async function loadAbsences(area) {
+        const resp = await fetch(absencesUrl, {
+            method: 'POST',
+            mode: 'cors',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 'area': area, 'desired-time': desiredTime ? desiredTime : new Date() })
+        });
+
+        let absences = await resp.json()
+
+        document.getElementById('absences-count').textContent = ` ${absences['absences']} `
+    }
+
+
+    async function processOperator({ type, line, workerId, workerType, intervalStart, intervalEnd }) {
+        const resp = await fetch(processOperatorUrl, {
+            method: 'POST',
+            mode: 'cors',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 'type': type, 'line': line, 'worker_id': workerId, 'worker_type': workerType, 'interval_start': intervalStart, 'interval_end': intervalEnd })
+        });
+
+        await fetch(forceKPIrecalculationUrl, {
+            method: 'POST',
+            mode: 'cors',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                'line': line,
+                'interval_beginning': intervalStart,
+                'interval_end': intervalEnd
+            })
+        })
+
+        return resp
+    }
+
+
+</script>
+{% endblock %}

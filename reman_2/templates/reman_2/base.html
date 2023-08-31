@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reman Regeneration Rate Reporting</title>
+    <style>
+        @font-face {
+            font-family: 'Noto Sans';
+            src: url('/media/fonts/NotoSans-Regular.ttf');
+            font-weight: bold;
+        }
+
+        @font-face {
+            font-family: 'Noto Sans';
+            src: url('/media/fonts/NotoSans-Light.ttf');
+            font-weight: normal;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Noto Sans';
+        }
+        
+        body {
+            display: flex;
+            height: 100vh;
+            max-width: 100vw;
+            background-image: url('/static/reman/reman_bg.jpg');
+            background-size: cover;
+            background-attachment: fixed;
+        }
+
+        .menu {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            max-width: 100vw;
+            height: 5vh;
+            min-height: 32px;
+            background-color: hsla(200, 10%, 20%, 1);
+            display: flex;
+            flex-flow: row;
+            color: white;
+            justify-content: space-between;
+        }
+        
+        .menu-item {
+            cursor: pointer;
+            display: flex;
+            flex-grow: 1;
+            flex-shrink: 1;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .menu-item:hover {
+            background-color: hsla(200, 50%, 20%, 1);
+        }
+    </style>
+    {% block style %}
+    {% endblock %}
+
+    {% block scripts-top %}
+    {% endblock %}
+</head>
+<body>
+    <div class="menu">
+        <div class="menu-item" onclick="window.location='{% url "reman_2:upload_excel" %}'">Nahrání souborů</div>
+        <div class="menu-item" onclick="window.location='{% url "reman_2:root_materials" %}'">CC materiály</div>
+        <div class="menu-item" onclick="window.location='{% url "reman_2:other_materials" %}'">Jiné materiály</div>
+        <div class="menu-item" onclick="window.location='{% url "reman_2:sorting" %}'">Sorting</div>
+        <div class="menu-item" onclick="window.location='{% url "reman_2:disassembly" %}'">Demontáž</div>
+        <div class="menu-item" onclick="window.location='{% url "reman_2:recondition" %}'">Rekondice</div>
+        <div class="menu-item" onclick="window.location='{% url "reman_2:settings" %}'">&#129520;</div>
+    </div>
+    {% block body %}
+    {% endblock %}
+
+    {% block scripts %}
+    {% endblock %}
+</body>
+</html>

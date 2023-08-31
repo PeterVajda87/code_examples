@@ -1,0 +1,591 @@
+{% extends 'base.html' %}
+
+{% block title %}
+<title>Detail prostojů stanice</title>
+{% endblock %}
+
+{% block head %}
+<script src="/static/scripts/chart.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-annotation/2.0.1/chartjs-plugin-annotation.min.js"></script>
+
+<style>
+    @font-face {
+        font-family: 'Noto Sans';
+        src: url('/media/fonts/NotoSans-Regular.ttf');
+        font-weight: bold;
+    }
+
+    @font-face {
+        font-family: 'Noto Sans';
+        src: url('/media/fonts/NotoSans-Light.ttf');
+        font-weight: normal;
+    }
+
+    @font-face {
+        font-family: 'Roboto';
+        src: url('/media/fonts/Roboto-Regular.ttf');
+        font-weight: normal;
+    }
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: 'Roboto';
+        font-size: clamp(12px, 2vh, 16px);
+        overflow-x: hidden;
+    }
+
+    .wrapper {
+        max-height: 100%;
+        display: flex;
+        flex-flow: column;
+        row-gap: 2rem;
+        padding: 0 1rem;
+    }
+
+    .settings {
+        height: 5vh;
+        display: flex;
+        justify-content: space-between;
+        padding: 0 2vw;
+        align-items: center;
+    }
+
+    .settings span {
+        min-width: 10vw;
+    }
+
+    select {
+        max-width: 20vw;
+        border: 1px solid black;
+        cursor: pointer;
+    }
+
+    select:active,
+    select:focus {
+        border: 2px solid black;
+    }
+
+    .chart {
+        height: 40vh;
+    }
+
+    .tabular-data {
+        height: 100%;
+        width: calc(100vw - 2rem);
+        display: flex;
+        flex-flow: row;
+        justify-content: space-between;
+        column-gap: 5vw;
+        cursor: pointer;
+    }
+
+    .tabular-data table {
+        width: 100%;
+        text-align: left;
+        border-collapse: collapse;
+    }
+
+    .aggregation-table {
+        width: calc(calc(1/4 * 100vw) - 2rem);
+    }
+
+    .timeline-table {
+        width: calc(calc(3/4 * 100vw) - 2rem);
+    }
+
+    .timeline-table tr:nth-child(even),
+    .aggregation-table tr:nth-child(even) {
+        background-color: rgba(0,0,0,0.05);
+    }
+
+    select,
+    input[type="date"] {
+        padding: 0.25rem 0.5rem;
+    }
+
+    input[type="button"] {
+        cursor: url('/media/cursors/butterfly.cur'), auto;
+        padding: 0.5rem 1rem;
+        background-color: white;
+        outline: none;
+        border: 1px solid black;
+    }
+    
+    input[type="button"]:hover {
+        background-color: black;
+        color: white;
+    }
+
+    .fake-select {
+        cursor: pointer;
+        position: absolute;
+    }
+
+    .hidden {
+        display: none !important;
+    }
+
+    .disabled {
+        cursor: not-allowed !important;
+        border-color: lightgray !important;
+        color: lightgray;
+        pointer-events: none;
+    }
+
+    .active {
+        background-color: rgb(0,0,255);
+        color: white;
+    }
+
+    .extend-me {
+        padding: 0.5rem;
+        cursor: pointer;
+    }
+
+    .extend-me:hover {
+        background-color: lightgray;
+    }
+
+    .downtimes-container,
+    .actions-container {
+        position: absolute;
+        width: 25vw;
+        border: 1px solid black;
+        display: flex;
+        flex-flow: column;
+        transform: translateX(-50%);
+        margin-top: 0.5rem;
+        padding: 1rem;
+        background-color: white;
+    }
+
+    .selectable-item {
+        cursor: pointer;
+    }
+
+    .selectable-item:hover {
+        background-color: lightblue;
+    }
+
+</style>
+
+{% endblock %}
+
+
+{% block body %}
+<div class="wrapper">
+    <div class="settings">
+        <label>Stanice
+            <select onchange="setSelectedStation(this)">
+                <option value="Default">-- výběr stanice --</option>
+                {% for station in stations %}
+                <option value="{{station}}">{{station}}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>Od
+            <input type="date" name="date-from" id="date-from" onchange="changeDates(this)">
+        </label>
+        <label style="display: flex; flex-flow: row; justify-content: center; column-gap: 0.5vw">
+            <input type="checkbox" checked onchange="setShifts()" value="R">R
+            <input type="checkbox" checked onchange="setShifts()" value="O">O
+            <input type="checkbox" checked onchange="setShifts()" value="N">N
+        </label>
+        <label>Do
+            <input type="date" name="date-to" id="date-to" onchange="changeDates(this)">
+        </label>
+
+        <label class="extend-me disabled" onclick="toggleStationDowntimes()" id="downtimes-container-label">Výběr prostoje</label>
+        <div class="downtimes-container hidden" id="downtimes-container"></div>
+        
+        <label class="extend-me disabled" onclick="toggleStationActions()" id="actions-container-label">Výběr akce</label>
+        <div class="actions-container hidden" id="actions-container"></div>
+
+        <input type="button" class="disabled" onclick="refreshDashboard()" value="Zobrazit">
+    </div>
+
+    <div class="chart hidden">
+        <canvas id="chart" width="400" height="400"></canvas>
+    </div>
+
+    <div class="tabular-data hidden">
+        <div id="aggregation-table" class="aggregation-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Prostoj</th>
+                        <th>Trvání (m)</th>
+                    </tr>
+                </thead>
+                <tbody id="aggregation-table-body"></tbody>
+            </table>
+        </div>
+        <div id="timeline-table" class="timeline-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Prostoj</th>
+                        <th>Začátek</th>
+                        <th>Konec</th>
+                        <th>Trvání (s)</th>
+                        <th style="width: 25%">Komentář</th>
+                    </tr>
+                </thead>
+                <tbody id="timeline-table-body"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+
+<script>
+    const downtimesContainerLabel = document.getElementById('downtimes-container-label')
+    const actionsContainerLabel = document.getElementById('actions-container-label')
+
+    var shifts = ['R', 'O', 'N'];
+    var dateTo = new Date();
+    var dateFrom = new Date();
+    var selectedStation = undefined;
+    var selectedDowntimes = new Array();
+    var selectedActions = new Array();
+    var stationDowntimes = new Array();
+    var stationActions = new Array();
+    dateFrom.setDate(dateTo.getDate() - 10);
+    document.getElementById('date-from').value = dateFrom.toISOString().slice(0, 10);
+    document.getElementById('date-to').value = dateTo.toISOString().slice(0, 10);
+
+
+    function setSelectedStation(stationSelect) {
+        selectedStation = stationSelect.value;
+        selectedActions.length = 0;
+        selectedDowntimes.length = 0;
+        actionsContainerLabel.classList.remove('active');
+        downtimesContainerLabel.classList.remove('active');
+        stationSelect.querySelector('option').disabled = true;
+        document.querySelectorAll('.disabled').forEach(extendDiv => {
+            extendDiv.classList.remove('disabled');
+        })
+
+        getStationDowntimes(selectedStation).then(downtimes => populateStationDowntimes(downtimes, selectedStation));
+        getStationActions(selectedStation).then(actions => populateStationActions(actions, selectedStation));
+    }
+
+    async function getStationDowntimes(station) {
+        const resp = await fetch(window.location, {
+            method: 'POST',
+            body: JSON.stringify({
+                'date_to': dateTo,
+                'date_from': dateFrom,
+                'station': selectedStation,
+                'type': 'station_downtimes',
+            })
+        })
+
+        return resp.json()
+    }
+
+    async function getStationActions(station) {
+        const resp = await fetch(window.location, {
+            method: 'POST',
+            body: JSON.stringify({
+                'date_to': dateTo,
+                'date_from': dateFrom,
+                'station': selectedStation,
+                'type': 'station_actions',
+            })
+        })
+
+        return resp.json()
+    }
+
+    function populateStationDowntimes(downtimes, station) {
+        stationDowntimes.length = 0;
+        downtimes['downtimes'].forEach(downtime => {
+            stationDowntimes.push(downtime);
+        });
+
+        createStationDowntimesContainer(downtimesContainerLabel);
+    }
+
+    function populateStationActions(actions, station) {
+        stationActions.length = 0;
+        actions['actions'].forEach(action => {
+            stationActions.push(action);
+        })
+
+        createStationActionsContainer(actionsContainerLabel);
+    }
+
+    function createStationDowntimesContainer(downtimesContainerLabel) {
+        let labelRectangle = downtimesContainerLabel.getBoundingClientRect();
+        document.getElementById('downtimes-container').style.top = `${labelRectangle.bottom}px`;
+        document.getElementById('downtimes-container').style.left = `${(labelRectangle.right - labelRectangle.left) / 2 + labelRectangle.left}px`;
+        document.getElementById('downtimes-container').innerHTML = "";
+
+        stationDowntimes.forEach(downtime => {
+            let downtimeLabel = document.createElement('div');
+            downtimeLabel.textContent = downtime;
+            downtimeLabel.dataset.selected = 'false';
+            downtimeLabel.classList.add('selectable-item');
+            downtimeLabel.addEventListener('click', () => {
+                if (downtimeLabel.dataset.selected == 'false') {
+                    downtimeLabel.dataset.selected = 'true';
+                    downtimesContainerLabel.classList.add('active');
+                    downtimeLabel.classList.add('active');
+                    selectedDowntimes.push(downtimeLabel.textContent);
+                } else {
+                    downtimeLabel.dataset.selected = 'false';
+                    downtimeLabel.classList.remove('active');
+                    selectedDowntimes = selectedDowntimes.filter(item => item !== downtimeLabel.textContent)
+                    if (selectedDowntimes.length == 0) {
+                        downtimesContainerLabel.classList.remove('active');
+                    }
+                }
+            });
+            document.getElementById('downtimes-container').append(downtimeLabel);
+        })
+    }
+
+    function createStationActionsContainer(actionsContainerLabel) {
+        let labelRectangle = actionsContainerLabel.getBoundingClientRect();
+        document.getElementById('actions-container').style.top = `${labelRectangle.bottom}px`;
+        document.getElementById('actions-container').style.left = `${(labelRectangle.right - labelRectangle.left) / 2 + labelRectangle.left}px`;
+        document.getElementById('actions-container').innerHTML = "";
+
+        stationActions.forEach(action => {
+            let actionLabel = document.createElement('div');
+            actionLabel.textContent = action;
+            actionLabel.dataset.selected = 'false';
+            actionLabel.classList.add('selectable-item');
+            actionLabel.addEventListener('click', () => {
+                if (actionLabel.dataset.selected == 'false') {
+                    actionLabel.dataset.selected = 'true';
+                    actionsContainerLabel.classList.add('active');
+                    actionLabel.classList.add('active');
+                    selectedActions.push(actionLabel.textContent);
+                } else {
+                    actionLabel.dataset.selected = 'false';
+                    actionLabel.classList.remove('active');
+                    selectedActions = selectedActions.filter(item => item !== actionLabel.textContent)
+                    if (selectedActions.length == 0) {
+                        actionsContainerLabel.classList.remove('active');
+                    }
+                }
+            });
+            document.getElementById('actions-container').append(actionLabel);
+        })
+    }
+
+
+    function toggleStationDowntimes() {
+        if (selectedDowntimes.length == 0) {
+            downtimesContainerLabel.classList.remove('active');
+        }
+        document.getElementById('downtimes-container').classList.toggle('hidden');
+    }
+
+    function toggleStationActions() {
+        if (selectedActions.length == 0) {
+            actionsContainerLabel.classList.remove('active');
+        }
+        document.getElementById('actions-container').classList.toggle('hidden');
+    }
+    
+    function hideStationDowntimes() {
+        document.getElementById('downtimes-container').classList.add('hidden');
+    }
+
+    function hideStationActions() {
+        document.getElementById('actions-container').classList.add('hidden');
+    }
+
+    function changeDates() {
+        dateFrom = document.getElementById('date-from').value;
+        dateTo = document.getElementById('date-to').value;
+    }
+
+    function setShifts() {
+        shifts = [];
+        document.querySelectorAll('input:checked').forEach(checkbox => {
+            shifts.push(checkbox.value);
+        })
+    }
+
+    async function refreshDashboard() {
+        hideStationDowntimes();
+        hideStationActions();
+        document.querySelectorAll(".chart, .tabular-data").forEach(hiddenEl => {
+            hiddenEl.classList.remove('hidden');
+        })
+
+        const resp = await fetch(window.location, {
+            method: 'POST',
+            body: JSON.stringify({
+                'date_to': dateTo,
+                'date_from': dateFrom,
+                'station': selectedStation,
+                'downtimes': selectedDowntimes,
+                'actions': selectedActions,
+            })
+        })
+
+        let updateData = await resp.json();
+        updateDowntimesChart(updateData['chart_data']);
+        updateAggregationTable(updateData['aggregation_data']);
+        updateTimelineTable(updateData['timeline_data']);   
+        addActionLine(updateData['actions_data']);
+    }
+
+    function updateDowntimesChart(data) {
+        downtimesChart.data.labels = data['labels'];
+        downtimesChart.data.datasets[0].data = data['data'];
+        downtimesChart.update();
+    }
+
+    function addActionLine(actions) {
+        downtimesChart.options.plugins.annotation.annotations = [];
+        actions.forEach(action => {
+            let randomColor = Math.floor(Math.random() * 16777215).toString(16);
+            console.log(randomColor)
+            let actionColor = "#" + randomColor;
+            let actionObj = {};
+            actionObj['type'] = 'line';
+            actionObj['scaleID'] = 'x';
+            actionObj['value'] = action.finish;
+            actionObj['label'] = {};
+            actionObj['label']['content'] = action.title;
+            actionObj['label']['display'] = false;
+            downtimesChart.options.plugins.annotation.annotations.push(actionObj);
+
+            action.entries.forEach((entry, index) => {
+                let entryObj = {};
+                entryObj['type'] = 'line';
+                entryObj['scaleID'] = 'x';
+                entryObj['value'] = entry[1];
+                entryObj['borderColor'] = actionColor;
+                entryObj['label'] = {};
+                entryObj['label']['content'] = entry[0];
+                entryObj['label']['display'] = true;
+                entryObj['label']['backgroundColor'] = actionColor;
+                entryObj['label']['color'] = invertColor(actionColor, true);
+                entryObj['label']['yAdjust'] = -100 + (100 * index);
+                entryObj['label']['adjustScaleRange'] = false;
+                downtimesChart.options.plugins.annotation.annotations.push(entryObj);
+            })
+        })
+        downtimesChart.update();
+    }
+
+    function updateAggregationTable(data) {
+        document.getElementById('aggregation-table-body').innerHTML = '';
+        for (const row of data) {
+            for (const [downtime, duration] of Object.entries(row)) {
+                let newRow = document.createElement('tr');
+                let downtimeCell = document.createElement('td');
+                downtimeCell.textContent = downtime;
+                newRow.append(downtimeCell);
+                let durationCell = document.createElement('td');
+                durationCell.textContent = duration;
+                newRow.append(durationCell);
+                document.getElementById('aggregation-table-body').append(newRow);
+            }
+        }
+    }
+
+    function updateTimelineTable(data) {
+        document.getElementById('timeline-table-body').innerHTML = '';
+        for (const row of data) {
+            let [downtime, beginning_t, end_t, duration, comment] = row;
+            let newRow = document.createElement('tr');
+            let downtimeCell = document.createElement('td');
+            downtimeCell.textContent = downtime;
+            newRow.append(downtimeCell);
+            let beginningCell = document.createElement('td');
+            let formattedBeginning = `${parseInt(beginning_t.slice(8, 10))}. ${parseInt(beginning_t.slice(5, 7))}. ${beginning_t.slice(10, 19)}`
+            beginningCell.textContent = formattedBeginning;
+            newRow.append(beginningCell);
+            let endCell = document.createElement('td');
+            let formattedEnd = `${parseInt(end_t.slice(8, 10))}. ${parseInt(end_t.slice(5, 7))}. ${end_t.slice(10, 19)}`
+            endCell.textContent = formattedEnd;
+            newRow.append(endCell);
+            let durationCell = document.createElement('td');
+            durationCell.textContent = parseInt(duration);
+            newRow.append(durationCell);
+            let commentCell = document.createElement('td');
+            commentCell.textContent = comment;
+            newRow.append(commentCell);
+            document.getElementById('timeline-table-body').append(newRow);
+        }
+    }
+
+function invertColor(hex, bw) {
+    if (hex.indexOf('#') === 0) {
+        hex = hex.slice(1);
+    }
+    // convert 3-digit hex to 6-digits.
+    if (hex.length === 3) {
+        hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+    }
+    if (hex.length !== 6) {
+        throw new Error('Invalid HEX color.');
+    }
+    var r = parseInt(hex.slice(0, 2), 16),
+        g = parseInt(hex.slice(2, 4), 16),
+        b = parseInt(hex.slice(4, 6), 16);
+    if (bw) {
+        // https://stackoverflow.com/a/3943023/112731
+        return (r * 0.299 + g * 0.587 + b * 0.114) > 186
+            ? '#000000'
+            : '#FFFFFF';
+    }
+    // invert color components
+    r = (255 - r).toString(16);
+    g = (255 - g).toString(16);
+    b = (255 - b).toString(16);
+    // pad each with zeros and return
+    return "#" + padZero(r) + padZero(g) + padZero(b);
+}
+
+
+</script>
+
+<script>
+    const ctx = document.getElementById('chart');
+    const downtimesChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: [
+                'A', 'B', 'C'
+            ],
+            datasets: [{
+                label: 'Trvání prostojů v minutách',
+                data: [12, 19, 3, 5, 2, 3],
+                backgroundColor: [
+                    'rgba(255, 0, 0, 0.2)',
+                ],
+                borderColor: [
+                    'rgba(255, 0, 0, 1)',
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            },
+            plugins: {
+                annotation: {
+                    annotations: [
+                    ]
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

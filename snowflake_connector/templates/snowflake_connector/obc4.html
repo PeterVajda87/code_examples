@@ -1,0 +1,8 @@
+{% for item in data %}
+<div style="display: flex; flex-flow: row">
+    <div style="flex-grow: 1; flex-basis: 0px">{{ item.0 }}</div>
+    <div style="flex-grow: 1; flex-basis: 0px">{{ item.1 }}</div>
+    <div style="flex-grow: 1; flex-basis: 0px">{{ item.2 }}</div>
+    <div style="flex-grow: 1; flex-basis: 0px">{{ item.3|date:"Y-m-d H:i:s" }}</div>
+</div>
+{% endfor %}

@@ -1,0 +1,753 @@
+{% extends 'obc4/obc4_base.html'%}
+
+{% block title %}
+OBC4 Performance Report
+{% endblock %}
+
+{% block style %}
+
+<style>
+
+.charts-wrapper {
+    display: flex;
+    flex-flow: row;
+    flex-wrap: wrap;
+    height: 95vh;
+    width: 100vw;
+}
+
+.chart {
+    width: calc(99vw / 2);
+    height: calc(92vh / 3);
+}
+.large{
+    width: 55vw;
+    height: calc(92vh / 3);
+}
+
+.settings {
+    width: 100vw;
+    height: 5vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.availability-table {
+    table-layout: fixed;
+    width: 100%;
+}
+
+.availability-table-wrapper {
+    background-color: white;
+    border: 2px solid lightgray;
+    position: absolute;
+    top: 5vh;
+    left: 50vw;
+    width: 25%;
+    height: 50vh;
+    overflow-y: auto;
+}
+
+
+#loader{
+            position: absolute;
+            left: 45vw;
+            top: 45vh;
+            z-index: 1;
+            width: 5vw;
+            height: 5vh;
+        }
+        #loaderSpin {
+            width: 6.8vw;
+            height: 6.8vw;
+            /* border: 10px solid #f3f3f3; */
+            border-radius: 50%;
+            border-top: 0.6vw solid #3498db;
+            animation: spin 0.7s ease-in-out infinite;
+            position: absolute;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(10deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #imgLogo{
+            height: 5vw;
+            width: 5vw;
+            margin: 1vw 0 0 1vw;
+        }
+</style>
+
+{% endblock %}
+
+{% block body %}
+    <div class="settings">
+        <label>Od
+            <input type="date" name="date-from" id="date-from" onchange="submitForm()">
+        </label>
+        <label style="display: flex; width: 10vw; flex-flow: row; justify-content: center; column-gap: 0.5vw">
+            <input type="checkbox" checked onchange="setShifts()" value="R">R
+            <input type="checkbox" checked onchange="setShifts()" value="O">O
+            <input type="checkbox" checked onchange="setShifts()" value="N">N
+        </label>
+        <label>Do
+            <input type="date" name="date-to" id="date-to" onchange="submitForm()">
+        </label>
+        <div style="margin-left: 1rem; cursor: pointer" onclick="showAvailability()">Upravit dostupnost</div>
+    </div>
+
+    <div class="charts-wrapper">
+        <div class="chart" id="cycle-time"></div>
+        <div class="chart" id="average-shift-output"></div>
+        <div class="chart" id="oee"></div>
+        <div class="chart" id="rq"></div>
+        <!-- <div class="chart large" id="oee-split"></div> -->
+    </div>
+
+    <template id="availability-table">
+        <div class="availability-table-wrapper">
+            <table class="availability-table">
+                <thead>
+                    <tr>
+                        <th>Datum</th>
+                        <th>Směna</th>
+                        <th>Dostupnost</th>
+                    </tr>
+                </thead>
+                
+                <tbody>
+                    <tr>
+
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </template>
+
+    <div id="loader">
+        <div id="loaderSpin"></div>
+        <img id="imgLogo" src="/static/ImgForAll/logoBlack.svg" alt="" id="img">
+    </div>
+    
+{% endblock %}
+
+{% block scripts-bottom %}
+<script>
+var shifts = ['R', 'O', 'N'];
+var falsifiedIndices = new Map();
+var dateTo = new Date();
+var dateFrom = new Date();
+const checkIfFalsifiedUrl = '{% url "obc4:check_if_falsified" %}'
+dateFrom.setDate(dateTo.getDate() - 10);
+document.querySelector('[name="date-from"]').value = dateFrom.toISOString().slice(0, 10)
+document.querySelector('[name="date-to"]').value = dateTo.toISOString().slice(0, 10)
+
+var weeksRange = false;
+
+google.charts.load('current', {'packages': ['corechart'] });
+google.charts.setOnLoadCallback(submitForm);
+
+async function showAvailability() {
+    if (document.getElementById('table-with-availability')) {
+        document.getElementById('table-with-availability').parentElement.remove();
+        return false;
+    }
+    const template = document.querySelector('template[id="availability-table"]');
+    const clone = template.content.cloneNode(true);
+    clone.querySelector('table').id = 'table-with-availability';
+
+    const resp = await fetch(window.location.href, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            'date_to': document.querySelector('[name="date-to"]').value,
+            'date_from': document.querySelector('[name="date-from"]').value,
+            'availability': true,
+        })
+        
+    })
+
+    let dataForTable = await resp.json();
+    document.body.append(clone);
+    
+    let tableBody = document.getElementById('table-with-availability');
+
+    Object.keys(dataForTable).forEach(dateAndShift => {
+        let [shiftDate, shift] = [...dateAndShift.split(' ')];
+        let availableMinutes = dataForTable[dateAndShift];
+        let newRow = tableBody.insertRow();
+        let dateCell = newRow.insertCell(-1);
+        let shiftCell = newRow.insertCell(-1);
+        let availableMinutesCell = newRow.insertCell(-1);
+        dateCell.textContent = shiftDate;
+        shiftCell.textContent = shift;
+        availableMinutesCell.textContent = availableMinutes;
+        availableMinutesCell.contentEditable = true;
+        availableMinutesCell.addEventListener('blur', (e) => { updateAvailability(e).then(() => submitForm()) })
+    })
+
+}
+
+async function updateAvailability(e) {
+    let availableMinutes = e.target.textContent;
+    let shiftDate = e.target.closest('tr').getElementsByTagName('td')[0].textContent;
+    let shift = e.target.closest('tr').getElementsByTagName('td')[1].textContent;
+
+    const resp = await fetch(window.location.href, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            'date_to': document.querySelector('[name="date-to"]').value,
+            'date_from': document.querySelector('[name="date-from"]').value,
+            'shift_date': shiftDate,
+            'shift': shift,
+            'availability': true,
+            'availableMinutes': availableMinutes,
+        })
+
+    })
+
+    return resp.json();
+}
+
+function setShifts() {
+    shifts = [];
+    document.querySelectorAll('input:checked').forEach(checkbox => {
+        shifts.push(checkbox.value);
+    })
+    submitForm();
+}
+
+function updateCharts(chartsData) {
+    document.querySelector(".charts-wrapper").style.visibility = "visible";
+    document.getElementById("loader").style.display = "none";
+
+    updateCycleTimeChart(chartsData['xAxis'], chartsData['chartsData']['cycleTime']);
+    updateAverageShiftOutputChart(chartsData['xAxis'], chartsData['chartsData']['averageShiftOutput']);
+    updateOEEchart(chartsData['xAxis'], chartsData['chartsData']['OEE']);
+    updateRQchart(chartsData['xAxis'], chartsData['chartsData']['RQ']);
+    updateOEEsplitChart(chartsData['xAxis'], chartsData['chartsData']['OEEsplit']);
+    // updateLossesChart(chartsData['xAxis'], chartsData['chartsData']['losses']);
+
+}
+
+function updateLossesChart(xAxis, yData) {
+    var data = new google.visualization.DataTable();
+    data.addColumn('date', 'Period');
+    data.addColumn('number', 'Quality');
+    data.addColumn('number', 'Log');
+    data.addColumn('number', 'C/O');
+    data.addColumn('number', 'Technical');
+    data.addColumn('number', 'Org');
+    data.addColumn('number', 'Paint');
+    data.addColumn('number', 'Performance');
+    xAxis.forEach((xTick, xIndex) => {
+        data.addRow([new Date(xTick.toString()), parseInt(yData['quality'][xIndex]), parseInt(yData['logistics'][xIndex]), parseInt(yData['changeover'][xIndex]), parseInt(yData['technical'][xIndex]), parseInt(yData['organization'][xIndex]), parseInt(yData['paint'][xIndex]), parseInt(yData['performance'][xIndex])]);
+    })
+
+    if (weeksRange){
+        var options = {
+            title: 'Time losses (min)',
+            seriesType: 'bars',
+            legend: { position: 'bottom', alignment: 'start'},
+            isStacked: true,
+            explorer: {
+                axis: 'vertical',
+                keepInBounds: true,
+                maxZoomIn: 4.0
+            },
+            hAxis: {
+                title: "weeks",
+                ticks: (() => {
+                    ticksList = []
+                    xAxis.forEach(xTick => {
+                        ticksList.push({ v: new Date(xTick.split("-").join(",")), f: setDateFormat(xTick) });
+                    })
+                    return ticksList
+                })(),
+            }
+        };
+    }else{
+        var options = {
+            title: 'Time losses (min)',
+            seriesType: 'bars',
+            legend: { position: 'bottom', alignment: 'start'},
+            isStacked: true,
+            explorer: {
+                axis: 'vertical',
+                keepInBounds: true,
+                maxZoomIn: 4.0
+            },
+            hAxis: {
+                ticks: (() => {
+                    ticksList = []
+                    xAxis.forEach(xTick => {
+                        ticksList.push({ v: new Date(xTick.split("-").join(",")), f: setDateFormat(xTick) });
+                    })
+                    return ticksList
+                })(),
+            }
+        };
+
+    }
+
+    var chart = new google.visualization.ComboChart(document.getElementById('total-time-loss'));
+    chart.draw(data, options);
+}
+
+function updateRQchart(xAxis, yData) {
+    var data = new google.visualization.DataTable();
+    data.addColumn('date', 'Period');
+    data.addColumn('number', 'Target RQ');
+    data.addColumn('number', 'RQ');
+    data.addColumn({ type: 'string', role: 'annotation' });
+    xAxis.forEach((xTick, xIndex) => {
+        data.addRow([new Date(xTick.toString()), yData['targetRQ'][xIndex], parseFloat(yData['RQ'][xIndex]), annotationPercentage(yData['RQ'][xIndex])]);
+    })
+
+    if (weeksRange){
+        var options = {
+            title: 'RQ (%)',
+            seriesType: 'bars',
+            legend: { position: 'bottom', alignment: 'start' },
+            series: {
+                0: { type: 'line', lineDashStyle: [12, 12] },
+            },
+            colors: ['#00ff00', '#0000ff'],
+            trendlines: {
+                1: {
+                    type: 'linear',
+                }
+            },
+            vAxis: {
+                format: 'percent',
+            },
+            hAxis: {
+                title: "weeks",
+                ticks: (() => {
+                    ticksList = []
+                    xAxis.forEach(xTick => {
+                        ticksList.push({ v: new Date(xTick.split("-").join(",")), f: setDateFormat(xTick) });
+                    })
+                    return ticksList
+                })(),
+            }
+        };
+    }else{
+        var options = {
+            title: 'RQ (%)',
+            seriesType: 'bars',
+            legend: { position: 'bottom', alignment: 'start' },
+            series: {
+                0: { type: 'line', lineDashStyle: [12, 12] },
+            },
+            colors: ['#00ff00', '#0000ff'],
+            trendlines: {
+                1: {
+                    type: 'linear',
+                }
+            },
+            vAxis: {
+                format: 'percent',
+            },
+            hAxis: {
+                ticks: (() => {
+                    ticksList = []
+                    xAxis.forEach(xTick => {
+                        ticksList.push({ v: new Date(xTick.split("-").join(",")), f: setDateFormat(xTick) });
+                    })
+                    return ticksList
+                })(),
+            }
+        };
+
+    }
+    var chart = new google.visualization.ComboChart(document.getElementById('rq'));
+    chart.draw(data, options);
+}
+
+function updateAverageShiftOutputChart(xAxis, yData) {
+    var data = new google.visualization.DataTable();
+    data.addColumn('date', 'Period');
+    data.addColumn('number', 'Target PCS');
+    data.addColumn('number', 'PCS');
+    data.addColumn({ type: 'string', role: 'annotation' });
+    xAxis.forEach((xTick, xIndex) => {
+        data.addRow([new Date(xTick.toString()), yData['targetPCS'][xIndex], parseInt(yData['PCS'][xIndex]), annotationString(parseInt(yData['PCS'][xIndex]))]);
+    })
+
+    
+
+    if (weeksRange){
+        var options = {
+            title: 'Average shift output (pcs)',
+            seriesType: 'bars',
+            legend: { position: 'bottom', alignment: 'start' },
+            series: {
+                0: { type: 'line', lineDashStyle: [12, 12] },
+            },
+            trendlines: {
+                1: {
+                    type: 'linear',
+                }
+            },
+            colors: ['#00ff00', '#0000ff'],
+            hAxis: {
+                title: "weeks",
+                ticks:  (() => {
+                    ticksList = []
+                    xAxis.forEach(xTick => {
+                        ticksList.push({v: new Date(xTick.split("-").join(",")), f: setDateFormat(xTick)});
+                    })
+                    return ticksList
+                })(),
+            }
+        };
+    }else{
+        var options = {
+            title: 'Average shift output (pcs)',
+            seriesType: 'bars',
+            legend: { position: 'bottom', alignment: 'start' },
+            series: {
+                0: { type: 'line', lineDashStyle: [12, 12] },
+            },
+            trendlines: {
+                1: {
+                    type: 'linear',
+                }
+            },
+            colors: ['#00ff00', '#0000ff'],
+            hAxis: {
+                ticks:  (() => {
+                    ticksList = []
+                    xAxis.forEach(xTick => {
+                        ticksList.push({v: new Date(xTick.split("-").join(",")), f: setDateFormat(xTick)});
+                    })
+                    return ticksList
+                })(),
+            }
+        };
+
+    }
+
+    var chart = new google.visualization.ComboChart(document.getElementById('average-shift-output'));
+    chart.draw(data, options);
+}
+
+
+function updateOEEsplitChart(xAxis, yData) {
+    var data = new google.visualization.DataTable();
+    data.addColumn('date', 'Period');
+    data.addColumn('number', 'Target Availability');
+    data.addColumn('number', 'Target Output');
+    data.addColumn('number', 'Target Quality');
+    data.addColumn('number', 'Availability');
+    data.addColumn('number', 'Output');
+    data.addColumn('number', 'Quality');
+    xAxis.forEach((xTick, xIndex) => {
+        data.addRow([new Date(xTick.toString()), yData['targetAvailability'][xIndex], yData['targetOutput'][xIndex], yData['targetRQ'][xIndex], parseFloat(valueOrZero(yData['data'][xIndex], 1)), parseFloat(valueOrZero(yData['data'][xIndex], 0)), parseFloat(valueOrZero(yData['data'][xIndex], 2))]);
+    })
+    
+    if (weeksRange){
+        var options = {
+            title: 'OEE split (%)',
+            legend: { position: 'bottom', alignment: 'start' },
+            seriesType: 'bars',
+            series: {
+                0: { type: 'line', lineDashStyle: [12, 12] },
+                1: { type: 'line', lineDashStyle: [12, 12] },
+                2: { type: 'line', lineDashStyle: [12, 12] },
+            },
+            colors: ['#00ff00', '#0000ff', '#ff0000', '#00ff00', '#0000ff', '#ff0000'],
+            vAxis: {
+                format: 'percent',
+                maxValue: 1,
+            },
+            explorer: {
+                axis: 'vertical',
+                keepInBounds: true,
+                maxZoomIn: 8.0
+            },
+            hAxis: {
+                title: "weeks",
+                ticks: (() => {
+                    ticksList = []
+                    xAxis.forEach(xTick => {
+                        ticksList.push({ v: new Date(xTick.split("-").join(",")), f: setDateFormat(xTick) });
+                    })
+                    return ticksList
+                })(),
+            }
+        };
+    }else{
+        var options = {
+            title: 'OEE split (%)',
+            legend: { position: 'bottom', alignment: 'start' },
+            seriesType: 'bars',
+            series: {
+                0: { type: 'line', lineDashStyle: [12, 12] },
+                1: { type: 'line', lineDashStyle: [12, 12] },
+                2: { type: 'line', lineDashStyle: [12, 12] },
+            },
+            colors: ['#00ff00', '#0000ff', '#ff0000', '#00ff00', '#0000ff', '#ff0000'],
+            vAxis: {
+                format: 'percent',
+                maxValue: 1,
+            },
+            explorer: {
+                axis: 'vertical',
+                keepInBounds: true,
+                maxZoomIn: 8.0
+            },
+            hAxis: {
+                ticks: (() => {
+                    ticksList = []
+                    xAxis.forEach(xTick => {
+                        ticksList.push({ v: new Date(xTick.split("-").join(",")), f: setDateFormat(xTick) });
+                    })
+                    return ticksList
+                })(),
+            }
+        };
+        
+    }
+    
+    var chart = new google.visualization.ComboChart(document.getElementById('oee-split'));
+    chart.draw(data, options);
+}
+
+async function updateOEEchart(xAxis, yData) {
+    var data = new google.visualization.DataTable();
+    data.addColumn('date', 'Period');
+    data.addColumn('number', 'Target OEE');
+    data.addColumn('number', 'OEE');
+    data.addColumn({ type: 'string', role: 'annotation' });
+    xAxis.forEach((xTick, xIndex) => {
+        data.addRow([new Date(xTick.toString()), yData['targetOEE'][xIndex], parseFloat(yData['OEE'][xIndex]), annotationPercentage(yData['OEE'][xIndex])]);
+        falsifiedIndices.set(xIndex, new Map([['Yvalue', parseFloat(yData['OEE'][xIndex])]]));
+    })
+
+    myData = JSON.parse(data.toJSON());
+
+    for (i = 0; i < myData['rows'].length; i++) {
+        let data = await fetch(checkIfFalsifiedUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                'date': myData['rows'][i]['c'][0]['v'],
+                'shifts': shifts,
+            })
+        })
+
+        checkResult = await data.json();
+        falsifiedIndices.get(i).set('falsified', checkResult['falsified'])
+    }
+
+    if (weeksRange){
+        var options = {
+            title: 'OEE (%)',
+            legend: { position: 'bottom', alignment: 'start' },
+            seriesType: 'bars',
+            series: {
+                0: { type: 'line', lineDashStyle: [12, 12] },
+            },
+            colors: ['#00ff00', '#0000ff'],
+            trendlines: { 1: {
+                type: 'linear',
+            } },
+            vAxis: {
+                format: 'percent',
+                maxValue: 1,
+            },
+            hAxis: {
+                title: "weeks",
+                ticks: (() => {
+                    ticksList = []
+                    xAxis.forEach(xTick => {
+                        ticksList.push({ v: new Date(xTick.split("-").join(",")), f: setDateFormat(xTick) });
+                    })
+                    return ticksList
+                })(),
+            }
+        };
+    } 
+    else {
+        var options = {
+            title: 'OEE (%)',
+            legend: { position: 'bottom', alignment: 'start' },
+            seriesType: 'bars',
+            series: {
+                0: { type: 'line', lineDashStyle: [12, 12] },
+            },
+            colors: ['#00ff00', '#0000ff'],
+            trendlines: { 1: {
+                type: 'linear',
+            } },
+            vAxis: {
+                format: 'percent',
+                maxValue: 1,
+            },
+            hAxis: {
+                ticks: (() => {
+                    ticksList = []
+                    xAxis.forEach(xTick => {
+                        ticksList.push({ v: new Date(xTick.split("-").join(",")), f: setDateFormat(xTick) });
+                    })
+                    return ticksList
+                })(),
+            }
+        };
+        
+    }
+    
+    var chart = new google.visualization.ComboChart(document.getElementById('oee'));
+    google.visualization.events.addListener(chart, 'ready', prd)
+    chart.draw(data, options);
+} 
+
+function prd() {
+
+    let keysToDelete = []
+
+    for (let [key, value] of falsifiedIndices) {
+        for (let [key2, value2] of value) {
+            if (key2 == 'Yvalue' && isNaN(value2)) {
+                keysToDelete.push(key);
+            }
+        }
+    }
+
+    keysToDelete.forEach(key => {
+        falsifiedIndices.delete(key);
+    })
+
+    let arrFromFalsifiedIndices  = Array.from(falsifiedIndices, (item) => {
+        return {key: item[0], value: item[1]}
+    })
+
+    for (let i = 0; i < arrFromFalsifiedIndices.length; i++) {
+        if (arrFromFalsifiedIndices[i].value.get('falsified') == true) {
+            document.querySelector('div#oee').querySelector('svg').querySelectorAll('g')[6].querySelector('g').querySelectorAll('g')[1].querySelectorAll('rect')[i].setAttribute('fill', "#F00") 
+        }
+    }
+}
+
+function updateCycleTimeChart(xAxis, yData) {
+    var data = new google.visualization.DataTable();
+    data.addColumn('date', 'Period');
+    data.addColumn('number', 'Target C/T');
+    data.addColumn('number', 'C/T');
+    xAxis.forEach((xTick, xIndex) => {
+        data.addRow([new Date(xTick.toString()), yData['targetCT'][xIndex], parseFloat(yData['CT'][xIndex])]);
+    })
+    
+    if (weeksRange) {
+        var options = {
+            title: 'C/T (s)',
+            seriesType: 'bars',
+            legend: { position: 'bottom', alignment: 'start' },
+            series: {   0: { type: 'line', lineDashStyle: [12, 12]},
+            1: { type: 'bar'},
+        },
+        colors: ['#00ff00', '#0000ff'],
+        hAxis: {
+            title: 'weeks',
+            ticks: (() => {
+                ticksList = []
+                xAxis.forEach(xTick => {
+                    ticksList.push({ v: new Date(xTick.split("-").join(",")), f: setDateFormat(xTick) });
+                    
+                })
+                    return ticksList
+                })(),
+            }
+        };
+    }else{
+        var options = {
+            title: 'C/T (s)',
+            seriesType: 'bars',
+            legend: { position: 'bottom', alignment: 'start' },
+            series: {   0: { type: 'line', lineDashStyle: [12, 12]},
+            1: { type: 'bar'},
+        },
+        colors: ['#00ff00', '#0000ff'],
+        hAxis: {
+            ticks: (() => {
+                ticksList = []
+                xAxis.forEach(xTick => {
+                    ticksList.push({ v: new Date(xTick.split("-").join(",")), f: setDateFormat(xTick) });
+                    
+                })
+                    return ticksList
+                })(),
+            }
+        };
+    }
+    
+    
+    var chart = new google.visualization.ComboChart(document.getElementById('cycle-time'));
+    chart.draw(data, options);
+} 
+
+function submitForm() {
+    dateFrom = document.querySelector('[name="date-from"]').value;
+    dateTo = document.querySelector('[name="date-to"]').value;
+    weeksRange = (new Date(document.querySelector('[name="date-to"]').value) - new Date(document.querySelector('[name="date-from"]').value)) / (1000 * 60 * 60 * 24) < 14 ? false : true;
+    sendData().then(resp => updateCharts(resp));
+}
+
+async function sendData() {
+    document.querySelector(".charts-wrapper").style.visibility = "hidden";
+    document.getElementById("loader").style.display = "block";
+
+    const url = window.location.href;
+    const resp = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            'date_to': document.querySelector('[name="date-to"]').value,
+            'date_from': document.querySelector('[name="date-from"]').value,
+            'shifts': shifts,
+        })
+    })
+
+    return resp.json();
+}
+
+function setDateFormat(xTick) {
+    let date = new Date(xTick);
+    if (weeksRange) {
+        return date.getWeek().toString();
+    } else {
+        return date.toISOString().slice(0, 10);
+    }
+}
+
+function annotationPercentage(value) {
+    return `${(parseFloat(value) * 100).toFixed(1)}%`
+}
+
+function annotationString(value) {
+    return `${value}`
+}
+
+function valueOrZero(inputList, index) {
+    if (inputList) {
+        return inputList[index];
+    } else {
+        return 0
+    };
+}
+</script>
+
+{% endblock %}

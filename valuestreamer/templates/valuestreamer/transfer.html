@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ValueStreamer data transfer interface</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .wrapper {
+            height: 100vh;
+            width: 90vw;
+            margin: 0 auto;
+            display: flex;
+            flex-flow: column;
+            flex-wrap: nowrap;
+            justify-content: space-between;
+        }
+        
+        .filter-container {
+            display: flex;
+            flex-flow: row;
+            height: 10%;
+            width: 100%;
+            margin: 0 auto;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .kpis-wrapper {
+            height: 90%;
+            display: flex;
+            flex-flow: column;
+            flex-wrap: nowrap;
+            border: 1px solid lightgray;
+            overflow: auto;
+        }
+
+        .kpi-container {
+            display: flex; 
+            flex-flow: row; 
+            width: 100%;
+            justify-content: space-between;
+        }
+
+        label {
+            display: block;
+        }
+
+        .kpis-wrapper > div.kpi-container:nth-of-type(even) {
+            background-color: rgba(0,0,0,0.05);
+        }
+
+        .kpi-value {
+            outline: none;
+            font-style: italic;
+            font-size: smaller;
+            height: 100%;
+            cursor: text;
+        }
+
+        .kpi-value:active {
+            outline: none;
+            border: none;
+        }
+
+        #kpi-select {
+            width: 40%;
+        }
+
+        #team-select {
+            width: 40%;
+        }
+
+        #kpi-fieldset,
+        #team-fieldset {
+            width: 100%;
+            display: flex;
+            flex-flow: row;
+            flex-wrap: wrap;
+            border: none;
+            column-gap: 1.5vw;
+            font-size: smaller;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <div class="filter-container">
+            <div data-for="kpi" id="kpi-select">
+                <fieldset id="kpi-fieldset">
+                    <legend>Zvolte KPI</legend>
+                </fieldset>
+            </div>
+
+            <div data-for="team" id="team-select">
+                <fieldset id="team-fieldset">
+                    <legend>Zvolte tým/y</legend>
+                </fieldset>
+            </div>
+
+            <label for="date">Datum
+                <input type="date" name="date" id="date-input">
+            </label>
+
+            <input type="button" value="Potvrdit" onclick="filterTable()">
+            <input type="button" value="Reset" onclick="resetCheckboxes()">
+
+        </div>
+        <div class="kpis-wrapper"></div>
+    </div>
+<script>
+    const kpiData = {{data|safe}};
+
+    document.addEventListener('DOMContentLoaded', () => {
+        createTable();
+        fillSelects();
+    })
+
+    function resetCheckboxes() {
+        document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+            cb.checked = false;
+        })
+    }
+
+    function filterTable() {
+
+        document.querySelectorAll('div.kpi-container').forEach(container => {
+            container.classList.remove('hidden');
+        })
+
+        document.querySelectorAll('div[data-team-id]').forEach(teamContainer => {
+            teamContainer.classList.remove('hidden');
+        })
+
+
+        let checkedKPIs = Array.from(document.querySelectorAll('input[type="checkbox"][data-for="kpi"]:checked')).map(x => x.value);
+        let checkedTeams = Array.from(document.querySelectorAll('input[type="checkbox"][data-for="team"]:checked')).map(x => x.value);
+        
+        document.querySelectorAll('div.kpi-container').forEach(container => {
+            if (!(checkedKPIs.includes(container.dataset.kpi))) {
+                container.classList.add('hidden');
+            }
+        })
+
+        document.querySelectorAll('div[data-team-id]:not([data-kpi-value-name])').forEach(teamContainer => {
+            if (!(checkedTeams.includes(teamContainer.dataset.team))) {
+                teamContainer.classList.add('hidden');
+            }
+        })
+
+        alterBackground();
+     }
+
+    function fillSelects() {
+        var teams = new Set();
+
+        for (const [KPI, data] of Object.entries(kpiData)) {
+            let checkboxContainer = document.createElement('div');
+
+            checkboxContainer.addEventListener('mouseover', (e) => {
+                e.target.style.backgroundColor = 'rgba(0,0,0,0.05)';
+            })
+
+            checkboxContainer.addEventListener('mouseout', (e) => {
+                e.target.style.backgroundColor = 'transparent';
+            })
+
+            checkboxContainer.style = "display: flex; flex-flow: row; column-gap: 5px"
+
+            let kpiCheckbox = document.createElement('input');
+            kpiCheckbox.type = "checkbox";
+            kpiCheckbox.name = KPI;
+            kpiCheckbox.checked = true;
+            kpiCheckbox.value = KPI;
+            kpiCheckbox.dataset.for = "kpi";
+            let kpiCheckboxLabel = document.createElement('label');
+            kpiCheckboxLabel.textContent = KPI;
+
+            kpiCheckboxLabel.addEventListener('click', (e) => {
+                e.target.previousElementSibling.checked = !e.target.previousElementSibling.checked;
+            })
+
+            checkboxContainer.append(kpiCheckbox, kpiCheckboxLabel);
+
+            document.getElementById('kpi-fieldset').append(checkboxContainer);
+
+            data['recording_teams'].forEach(team => {
+                teams.add(team['name'])
+            })
+
+        }
+
+        teams = new Set(Array.from(teams).sort())
+
+        teams.forEach(team => {
+            let teamContainer = document.createElement('div');
+            teamContainer.style = "display: flex; flex-flow: row; column-gap: 5px"
+
+            teamContainer.addEventListener('mouseover', (e) => {
+                e.target.style.backgroundColor = 'rgba(0,0,0,0.05)';
+            })
+
+            teamContainer.addEventListener('mouseout', (e) => {
+                e.target.style.backgroundColor = 'transparent';
+            })
+
+            let teamCheckbox = document.createElement('input');
+            teamCheckbox.type = "checkbox";
+            teamCheckbox.name = team;
+            teamCheckbox.value = team;
+            teamCheckbox.checked = true;
+            teamCheckbox.dataset.for = "team";
+            let teamCheckboxLabel = document.createElement('label');
+            teamCheckboxLabel.textContent = team;
+
+            teamCheckboxLabel.addEventListener('click', (e) => {
+                e.target.previousElementSibling.checked = !e.target.previousElementSibling.checked;
+            })
+
+            teamContainer.append(teamCheckbox, teamCheckboxLabel);
+
+            document.getElementById('team-fieldset').append(teamContainer);
+        })
+
+        let yesterday = new Date().setDate(new Date().getDate() - 1)
+        document.getElementById('date-input').value = new Date(yesterday).toISOString().slice(0, 10);
+    }
+
+    function createTable() { 
+        console.log(kpiData)
+        for (const [KPI, data] of Object.entries(kpiData)) {
+            let KPIcontainer = document.createElement('div');
+            KPIcontainer.classList.add('kpi-container')
+            KPIcontainer.dataset.kpi = KPI;
+
+            let KPInameContainer = document.createElement('div');
+            KPInameContainer.style = "display: flex; flex-flow: column; justify-content: center; align-items: center; width: 25%";
+
+            let KPIteamsContainer = document.createElement('div');
+            KPIteamsContainer.style = "display: flex; flex-flow: column; width: 75%"
+
+            let KPIname = document.createElement('div');
+            KPIname.textContent = KPI;
+            KPInameContainer.append(KPIname)
+
+            data['recording_teams'].forEach((team, index) => {
+                let teamContainer = document.createElement('div');
+                teamContainer.style = "display: grid; grid-template-columns: 1fr 1fr 1fr;"
+                teamContainer.dataset.teamId = team['id'];
+                teamContainer.dataset.team = team['name'];
+
+                let teamName = document.createElement('div');
+                teamName.style = "flex-grow: 1; flex-shrink: 1; flex-basis: 0;"
+                teamName.textContent = team['name'];
+
+                teamContainer.append(teamName);
+                KPIteamsContainer.append(teamContainer);
+
+                let kpiValue1Container = document.createElement('div');
+                let kpiValue2Container = document.createElement('div');
+                
+                let kpiValue1Name = document.createElement('div');
+                kpiValue1Name.textContent = data['kpi_values'][0]['name'];
+                kpiValue1Name.dataset.kpiValueName = data['kpi_values'][0]['name'];
+                kpiValue1Name.dataset.kpiValueId = data['kpi_values'][0]['id'];
+                kpiValue1Name.dataset.kpi = KPI;
+                kpiValue1Name.dataset.kpiId = data['kpi_id'];
+                kpiValue1Name.dataset.teamId = team['id'];
+                kpiValue1Name.dataset.rowIndex = index;
+                kpiValue1Name.dataset.columnIndex = 0;
+                kpiValue1Name.dataset.previousValue = "";
+                kpiValue1Name.classList.add('kpi-value');
+                kpiValue1Name.contentEditable = true;
+                kpiValue1Container.append(kpiValue1Name);
+                
+                let kpiValue2Name = document.createElement('div');
+                kpiValue2Name.textContent = data['kpi_values'][1]['name'];
+                kpiValue2Name.dataset.kpiValueName = data['kpi_values'][1]['name'];
+                kpiValue2Name.dataset.kpiValueId = data['kpi_values'][1]['id'];
+                kpiValue2Name.dataset.kpi = KPI;
+                kpiValue2Name.dataset.kpiId = data['kpi_id'];
+                kpiValue2Name.dataset.teamId = team['id'];
+                kpiValue2Name.dataset.rowIndex = index;
+                kpiValue2Name.dataset.columnIndex = 1;
+                kpiValue2Name.dataset.previousValue = "";
+                kpiValue2Name.classList.add('kpi-value');
+                kpiValue2Name.contentEditable = true;
+                kpiValue2Container.append(kpiValue2Name);
+
+                kpiValue1Name.addEventListener('focusin', (e) => {
+                    e.target.dataset.previousValue = e.target.textContent;
+                    e.target.textContent = "";
+                })
+
+                kpiValue1Name.addEventListener('focusout', (e) => {
+                    if (e.target.textContent == "" || e.target.textContent == e.target.dataset.kpiValueName) {
+                        e.target.textContent = e.target.dataset.previousValue;
+                        e.target.style.fontStyle = "italic";
+                    } else {
+                        e.target.style.fontStyle = "initial";
+                        transferValue(e.target);
+                    }
+                })
+
+                kpiValue1Name.addEventListener('keydown', (e) => {
+                    switch (e.key) {
+                        case "ArrowDown":
+                            document.querySelector(`div[data-row-index="${parseInt(e.target.dataset.rowIndex) + 1}"][data-column-index="${e.target.dataset.columnIndex}"][data-kpi-value-name="${e.target.dataset.kpiValueName}"]`).focus();
+                            break;
+                        case "Enter":
+                            e.preventDefault();
+                            document.querySelector(`div[data-row-index="${parseInt(e.target.dataset.rowIndex) + 1}"][data-column-index="${e.target.dataset.columnIndex}"][data-kpi-value-name="${e.target.dataset.kpiValueName}"]`).focus();
+                            break;
+                        case "ArrowUp":
+                            document.querySelector(`div[data-row-index="${parseInt(e.target.dataset.rowIndex) - 1}"][data-column-index="${e.target.dataset.columnIndex}"][data-kpi-value-name="${e.target.dataset.kpiValueName}"]`).focus();
+                            break;
+                        case "ArrowLeft":
+                            document.querySelector(`div[data-row-index="${e.target.dataset.rowIndex}"][data-column-index="${e.target.dataset.columnIndex}"][data-kpi-value-name="${parseInt(e.target.dataset.kpiValueName) - 1}"]`).focus();
+                            break;
+                        case "ArrowRight":
+                            document.querySelector(`div[data-row-index="${e.target.dataset.rowIndex}"][data-column-index="${e.target.dataset.columnIndex}"][data-kpi-value-name="${parseInt(e.target.dataset.kpiValueName) + 1}"]`).focus();
+                            break;
+                    }
+                })
+
+                kpiValue2Name.addEventListener('focusin', (e) => {
+                    e.target.textContent = "";
+                })
+
+                kpiValue2Name.addEventListener('focusout', (e) => {
+                    if (e.target.textContent == "" || e.target.textContent == e.target.dataset.kpiValueName) {
+                        e.target.textContent = e.target.dataset.kpiValueName;
+                        e.target.style.fontStyle = "italic";
+                    } else {
+                        e.target.style.fontStyle = "initial";
+                        transferValue(e.target);
+                    }
+                })
+
+                kpiValue2Name.addEventListener('keydown', (e) => {
+                    switch (e.key) {
+                        case "ArrowDown":
+                            document.querySelector(`div[data-row-index="${parseInt(e.target.dataset.rowIndex) + 1}"][data-column-index="${e.target.dataset.columnIndex}"][data-kpi-value-name="${e.target.dataset.kpiValueName}"]`).focus();
+                            break;
+                        case "Enter":
+                            e.preventDefault();
+                            document.querySelector(`div[data-row-index="${parseInt(e.target.dataset.rowIndex) + 1}"][data-column-index="${e.target.dataset.columnIndex}"][data-kpi-value-name="${e.target.dataset.kpiValueName}"]`).focus();
+                            break;
+                        case "ArrowUp":
+                            document.querySelector(`div[data-row-index="${parseInt(e.target.dataset.rowIndex) - 1}"][data-column-index="${e.target.dataset.columnIndex}"][data-kpi-value-name="${e.target.dataset.kpiValueName}"]`).focus();
+                            break;
+                        case "ArrowLeft":
+                            document.querySelector(`div[data-row-index="${e.target.dataset.rowIndex}"][data-column-index="${e.target.dataset.columnIndex}"][data-kpi-value-name="${parseInt(e.target.dataset.kpiValueName) - 1}"]`).focus();
+                            break;
+                        case "ArrowRight":
+                            document.querySelector(`div[data-row-index="${e.target.dataset.rowIndex}"][data-column-index="${e.target.dataset.columnIndex}"][data-kpi-value-name="${parseInt(e.target.dataset.kpiValueName) + 1}"]`).focus();
+                            break;
+                    }
+                })
+
+                teamContainer.append(kpiValue1Container);
+                teamContainer.append(kpiValue2Container);
+            })
+
+            KPIcontainer.append(KPInameContainer);
+            KPIcontainer.append(KPIteamsContainer);
+            document.querySelector('div.kpis-wrapper').append(KPIcontainer);
+        }
+    } 
+
+    function alterBackground() {
+        let visibleContainers = Array.from(document.querySelectorAll('div[class="kpi-container"]'));
+
+        for (let i = 0; i < visibleContainers.length; i++) {
+            if (i == 0 || i % 2 == 0) {
+                visibleContainers[i].style.backgroundColor = 'rgba(0,0,0,0.05)';   
+            } else {
+                visibleContainers[i].style.backgroundColor = 'transparent'
+            }
+        }
+    }
+
+    async function transferValue(kpiValue) {
+        const resp = await fetch(document.location, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                'kpi_id': kpiValue.dataset.kpiId,
+                'kpi_value_id': kpiValue.dataset.kpiValueId,
+                'kpi_value': kpiValue.textContent,
+                'kpi_date': document.getElementById('date-input').value,
+                'team_id': kpiValue.dataset.teamId
+            })
+        })
+
+        jsonResp = await resp.json();
+    }
+</script>
+</body>
+</html>

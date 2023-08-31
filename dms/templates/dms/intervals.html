@@ -1,0 +1,777 @@
+{% extends 'dms/base.html' %}
+
+{% block style %}
+<style>
+    :root {
+        --row-height-8: calc(96% / 8);
+        --row-height-12: calc(96% / 12);
+        --row-height-10: calc(96% / 10);
+    }
+
+    .wrapper {
+        grid-column: 2/3;
+        grid-row: 2/3;
+        height: 100%;
+        display: grid;
+        grid-template-rows: auto;
+        grid-auto-rows: 1fr;
+        grid-template-columns: 8% 20% repeat(3, calc(calc(72% - 4px) / 3));
+        background-color: lightgray;
+        column-gap: 1px;
+    }
+
+    .timeline-column {
+        grid-column: 1/2;
+        background-color: white;
+    }
+
+    .timeline-column-header,
+    .kpi-column-header {
+        border-bottom: 1px solid gray;
+        background-color: gray;
+        color: white;
+        font-weight: bold;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 4%;
+        text-transform: capitalize;
+    }
+
+    .timeline-row,
+    .kpi-row {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: auto;
+    }
+
+    .timeline-row:nth-of-type(even),
+    .kpi-row:nth-of-type(even) {
+        background-color: rgba(0, 0, 0, 0.025);
+    }
+
+    .timeline-row:not(:last-of-type),
+    .kpi-row:not(:last-of-type) {
+        border-bottom: 1px dashed gray;
+    }
+
+    .height-8 {
+        height: var(--row-height-8);
+    }
+
+    .height-10 {
+        height: var(--row-height-10);
+    }
+
+    .height-12 {
+        height: var(--row-height-12);
+    }
+
+    .kpi-column {
+        background-color: white;
+    }
+
+    .deviation-div {
+        grid-area: 1 / 1 / 2 / 2;
+        display: flex;
+        align-items: end;
+    }
+    
+    .deviation-div:hover,
+    .time-loss:hover,
+    .safety-div:hover {
+        font-weight: bold;
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .result-div {
+        grid-area: 1 / 1 / 2 / 2;
+        display: flex;
+        flex-flow: column;
+        flex-wrap: nowrap;
+        justify-content: space-between;
+        height: 100%;
+        padding: 0.5vh 0.5vw;
+    }
+
+    .result-div > div {
+        flex-grow: 1;
+        flex-shrink: 1;
+        flex-basis: 0px;
+    }
+
+    .chart-div {
+        grid-area: 1 / 2 / 2 / 2;
+        max-height: 100%;
+    }
+
+    .quality,
+    .deliveries {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        grid-template-rows: 1fr;
+    }
+
+    .costs {
+        display: flex;
+        flex-flow: column;
+    }
+
+    .target-not-reached {
+        background-color: rgba(255, 0, 0, 0.15) !important;
+    }
+
+    .modal {
+        display: none; /* Hidden by default */
+        position: fixed; /* Stay in place */
+        z-index: 1; /* Sit on top */
+        left: 0;
+        top: 0;
+        width: 100%; /* Full width */
+        height: 100%; /* Full height */
+    }
+
+    .modal select {
+        margin-left: 1vw;
+    }
+
+    .modal-content {
+        background-color: #fefefe;
+        margin: 20% auto; /* 15% from the top and centered */
+        padding: 5vh 2.5vw;
+        border: 1px solid #888;
+        width: 50vw; /* Could be more or less, depending on screen size */
+        height: fit-content;
+        position: relative;
+    }
+
+    .close {
+        color: #aaa;
+        font-size: 32px;
+        font-weight: bold;
+        position: absolute;
+        right: 1.25vw;
+        top: 0;
+    }
+
+    .close:hover,
+    .close:focus {
+        color: black;
+        text-decoration: none;
+        cursor: pointer;
+    }
+    
+
+</style>
+{% endblock %}
+
+{% block script-top %}
+    <script src="/static/dms/chart.umd.js"></script>
+    <script src="/static/dms/chartjs-plugin-datalabels.min.js"></script>
+{% endblock %}
+
+{% block page_title %} > Intervalová stabilita 
+<select onchange="setUpTimeline(this.value)">
+
+    {% for line in lines %}
+        <option value="{{line.0}}" data-thingworx-name="{{line.2}}">{{line.0}}</option>
+        {% endfor %}
+        <option value="all">všechno</option>
+</select>
+{% endblock %}
+
+{% block main-content %}
+<div class="wrapper">
+    <div class="timeline-column">
+    </div>
+    <div class="kpi-column" data-kpi="safety" data-api="safety">
+    </div>
+    <div class="kpi-column" data-kpi="quality" data-api="quality">
+    </div>
+    <div class="kpi-column" data-kpi="deliveries" data-api="deliveries">
+    </div>
+    <div class="kpi-column" data-kpi="costs" data-api="time_losses">
+    </div>
+</div>
+
+<div id="modal" class="modal">
+
+    <div class="modal-content">
+        <div class="close" id="close-button">&times;</div>
+        <div class="modal-text" id="modal-text">Text</div>
+    </div>
+
+</div>
+
+
+{% endblock %}
+
+{% block script-bottom %}
+<script>
+
+    var selectedLine = window.localStorage.getItem('selectedLine') ? window.localStorage.getItem('selectedLine') : document.querySelector('option').textContent;
+    var desiredTime = null;
+    const timelineUrl = "{% url 'dms:get_timeline' %}";
+    const updateDeviationUrl = "{% url 'dms:update_deviation' %}";
+    const intervalLength = 60 * 60 * 1000;
+    const timelineColumn = document.querySelector('div.timeline-column')
+    const kpiColumns = document.querySelectorAll('div.kpi-column');
+    const fetchUrl = "http://10.49.34.122:8000/api/";
+    var setIntervalId = null;
+    const modal = document.getElementById('modal');
+    const categoriesForDeviation = ['', 'Operátor', 'Materiál', 'Proces', 'Stroj -> výrobní linka', 'Měření', 'Organizace', 'Ostatní'];
+    const categoriesForCountermeasures = ['', 'Zásah operátora do výrobního zařízení', 'Zásah seřizovače do výrobního zařízení', 'Zásah údržby', 'Zásah externího dodavatele', 'Zásah logistiky - dodání materiálu', 'Zásah mistra', 'Porada', 'Eskalace o úroveň výše', 'Proškolení operátora', 'Přezkoušení operátora', 'Změna technologického postupu', 'Změna kontrolní návodky', 'Úprava katalogu vad', 'Kontrola způsobu eskalace'];
+
+    document.getElementById('close-button').addEventListener('click', () => {
+        modal.style.display = "none";
+    })
+
+    window.onclick = () => {
+        if (event.target == modal) {
+            modal.style.display = "none";
+        }
+    }
+
+    const translations = {
+        'quality': 'kvalita',
+        'deliveries': 'dodávky',
+        'costs': 'náklady',
+        'safety': 'bezpečnost',
+        'break': 'přestávka',
+        'downtime': 'prostoj',
+        'changeover': 'přestavba'
+    }
+
+    function refreshPage() {
+        document.querySelector(`option[value="${selectedLine}"]`).selected = true;
+        document.querySelectorAll('.active-icon').forEach(icon => icon.classList.remove('active-icon'));
+        document.getElementById('intervals-icon').classList.add('active-icon');
+        setUpTimeline(selectedLine);
+        document.querySelector(`option[value="${window.localStorage.getItem('selectedLine')}"]`).selected = true;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        refreshPage();
+    })
+
+    function triggerTimeChanged() {
+        desiredTime = window.localStorage.getItem('desiredDatetime');
+        refreshPage();
+    }
+
+    function setUpTimeline(line) {
+        if (setIntervalId) {
+            clearInterval(setIntervalId)
+        }
+        if (window.localStorage.getItem('selectedLine') != line) {
+            window.localStorage.setItem('selectedLine', line);
+            selectedLine = line;
+        }
+        timelineColumn.innerHTML = '';
+        kpiColumns.forEach(kpiColumn => kpiColumn.innerHTML = '');
+        getTimelineBounds(line)
+        .then(timelineBounds => addIntervals(timelineBounds));
+    }
+
+    async function getTimelineBounds(line) {
+        const resp = await fetch(timelineUrl, {
+            method: 'POST',
+            mode: 'cors',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 'line': line, 'desired-time': desiredTime ? desiredTime : new Date() })
+        });
+
+        let timelineBounds = await resp.json();
+
+        return { 'timelineBounds': timelineBounds };
+    }
+
+    async function addIntervals(timelineData) {
+        let timelineStart = new Date(timelineData['timelineBounds']['start']);
+        let timelineEnd = new Date(timelineData['timelineBounds']['end']);
+
+        let rowsCount = (timelineEnd - timelineStart) / intervalLength;
+
+        let timelineColumnHeader = document.createElement('div');
+        timelineColumnHeader.textContent = "Začátek"
+        timelineColumnHeader.classList.add('timeline-column-header');
+        timelineColumn.append(timelineColumnHeader);
+
+        kpiColumns.forEach(kpiColumn => {
+            let kpiColumnHeader = document.createElement('div');
+            kpiColumnHeader.textContent = translations[kpiColumn.dataset.kpi];
+            kpiColumnHeader.classList.add('timeline-column-header');
+            kpiColumn.append(kpiColumnHeader);
+        })
+
+        while (timelineStart < timelineEnd) { 
+            let timeDiv = document.createElement('div');
+            timeDiv.textContent = `${timelineStart.getHours()}:${timelineStart.getMinutes().toString().padStart(2, 0)}`;
+            timeDiv.classList.add(`height-${rowsCount}`, 'timeline-row');
+            timelineColumn.append(timeDiv);
+            
+            kpiColumns.forEach(kpiColumn => {
+                let kpiDiv = document.createElement('div');
+                kpiDiv.dataset.kpi = kpiColumn.dataset.kpi;
+                kpiDiv.dataset.api = kpiColumn.dataset.api;
+                kpiDiv.dataset.intervalStart = toISOStringWithTimezone(timelineStart);
+                kpiDiv.dataset.intervalEnd = toISOStringWithTimezone(new Date(new Date(timelineStart).setHours(timelineStart.getHours() + 1)));
+                kpiDiv.classList.add(`height-${rowsCount}`, 'kpi-row', kpiColumn.dataset.kpi);
+                kpiColumn.append(kpiDiv);
+            })
+
+            timelineStart.setHours(timelineStart.getHours() + 1);
+        }
+
+        getResults().then(() => getDeviation());
+
+        setIntervalId = setInterval(() => {
+            getResults().then(() => getDeviation());
+        }, 30_000)
+
+    }
+
+    async function getResults() {
+        const kpiCells = Array.from(document.querySelectorAll('div[class*="kpi-row"][data-kpi]'));
+
+        for (let i = 0; i < kpiCells.length; i++) {
+            if (new Date(kpiCells[i].dataset.intervalEnd) < new Date()) {
+                let kpi = kpiCells[i].dataset.kpi;
+                let API = kpiCells[i].dataset.api;
+                let intervalStart = kpiCells[i].dataset.intervalStart;
+                let intervalEnd = kpiCells[i].dataset.intervalEnd;
+                let result = await fetchResult(API, intervalStart, intervalEnd).then(kpiData => fillInData(kpiCells[i], kpiData));
+            }
+        }
+    }
+
+    async function fetchResult(API, intervalStart, intervalEnd) {
+        const resp = await fetch(`${fetchUrl}${API}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 'line': selectedLine, 'interval_beginning': intervalStart, 'interval_end': intervalEnd })
+        })
+
+        const data = await resp.json();
+
+        return data;
+    }
+
+    async function fetchDeviation(kpi, intervalStart, intervalEnd) {
+        if (kpi == 'quality' || kpi == 'deliveries') {
+            const resp = await fetch(`${fetchUrl}deviations`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 'line': selectedLine, 'interval_beginning': intervalStart, 'interval_end': intervalEnd, 'kpi': kpi == "quality" ? 'rq' : kpi })
+            })
+
+            return resp.json();
+        }
+    }
+
+    async function fetchTimeLossDetail(timeLossId) {
+        const resp = await fetch(`${fetchUrl}time_loss_detail`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 'line': selectedLine, 'time_loss_id': timeLossId, 'thingworx_name': document.querySelector('select')[document.querySelector('select').selectedIndex].dataset.thingworxName })
+        })
+
+        return resp.json();
+    }
+
+
+    async function getDeviation() {
+        const kpiCells = Array.from(document.querySelectorAll('div[data-api]'));
+        for (let i = 0; i < kpiCells.length; i++) {
+            if (new Date(kpiCells[i].dataset.intervalEnd) < new Date()) {
+                let kpi = kpiCells[i].dataset.api;
+                let intervalStart = kpiCells[i].dataset.intervalStart;
+                let intervalEnd = kpiCells[i].dataset.intervalEnd;
+                let result = await fetchDeviation(kpi, intervalStart, intervalEnd).then(kpiData => fillInDeviation(kpiCells[i], kpiData));
+            }
+        }
+    }
+
+    function fillInDeviation(cell, data) {
+        if (!(data)) {
+            return false
+        }
+        if (data['result']) {
+            cell.querySelector('div.deviation-div')?.remove();
+            let deviationDiv = document.createElement('div');
+            deviationDiv.classList.add('deviation-div');
+            deviationDiv.innerHTML = `Nedosažený cíl: ${(data['result'][1] * 100).toFixed(1)}%`;
+            deviationDiv.dataset.target = parseFloat(data['result'][2]);
+            deviationDiv.dataset.actual = parseFloat(data['result'][1]);
+            deviationDiv.dataset.deviationId = data['result'][3];
+            deviationDiv.addEventListener('click', async (e) => {
+                modal.style.display = "block";
+                modal.dataset.deviationId = e.target.dataset.deviationId;
+                document.getElementById('modal-text').innerHTML = "";
+                let kpiCell = e.target.closest('div.kpi-row');
+
+                let intervalsDiv = document.createElement('div');
+                intervalsDiv.style = 'display: flex; flex-flow: row; justify-content: space-between';
+
+                intervalsDiv.innerHTML += `<div>Začátek intervalu: ${new Date(kpiCell.dataset.intervalStart).toLocaleString()}</div>`;
+                intervalsDiv.innerHTML += `<div>Konec intervalu: ${new Date(kpiCell.dataset.intervalEnd).toLocaleString()}</div>`;
+                intervalsDiv.innerHTML += `<p> KPI: ${ translations[kpiCell.dataset.api] }</p>`;
+
+                document.getElementById('modal-text').append(intervalsDiv);
+
+                let lossesDiv = document.createElement('div');
+                lossesDiv.style = 'display: flex; flex-flow: row; justify-content: space-between; padding: 3vh 0';
+
+                let qualityLossDetail = await fetchResult('quality', kpiCell.dataset.intervalStart, kpiCell.dataset.intervalEnd);
+                let qualityLossDiv = document.createElement('div');
+
+                qualityLossDiv.innerHTML += `<p>Ztráty kvality: </p>`
+                qualityLossItem = document.createElement('div');
+                qualityLossItem.textContent = `${qualityLossDetail['nok_parts']} NOK ks (z ${qualityLossDetail['nok_parts'] + qualityLossDetail['ok_parts']}) = ${(qualityLossDetail['result'] * 100).toFixed(2) + "%"}`;
+                qualityLossDiv.append(qualityLossItem);
+
+                let timeLossDetail = await fetchResult('time_losses', kpiCell.dataset.intervalStart, kpiCell.dataset.intervalEnd);
+                let timeLossDiv = document.createElement('div');
+
+                timeLossDiv.innerHTML += `<p>Ztráty času: </p>`;
+
+                timeLossDetail['result'].forEach(timeLossDetail => {
+                    let timeLossItem = document.createElement('div');
+                    let timeLossBeginning = new Date(timeLossDetail[0]).toLocaleTimeString();
+                    let timeLossEnd = new Date(timeLossDetail[1]).toLocaleTimeString();
+                    timeLossItem.textContent = `${timeLossBeginning} - ${timeLossEnd} ${translations[timeLossDetail[2]]}`;
+                    timeLossDiv.append(timeLossItem);
+                })
+
+                
+                document.getElementById('modal-text').append(lossesDiv);
+                
+                let productionLossDetail = await fetchResult('deliveries', kpiCell.dataset.intervalStart, kpiCell.dataset.intervalEnd);
+                let productionLossDiv = document.createElement('div');
+                
+                productionLossDiv.innerHTML += `<p>Ztráty produkce: </p>`;
+                productionLossItem = document.createElement('div');
+                productionLossItem.textContent = `${productionLossDetail['target_deliveries'] - productionLossDetail['delivered_parts']}`;
+                
+                productionLossDiv.append(productionLossItem);
+
+                lossesDiv.append(qualityLossDiv);
+                lossesDiv.append(timeLossDiv);
+                lossesDiv.append(productionLossDiv);
+
+                let categoriesWrapper = document.createElement('div');
+                categoriesWrapper.style = 'display: flex; flex-flow: row; justify-content: space-between';
+
+                let categoryForDeviationContainer = document.createElement('div');
+                let categoryForCountermeasureContainer = document.createElement('div');
+
+                categoriesWrapper.append(categoryForDeviationContainer)
+                categoriesWrapper.append(categoryForCountermeasureContainer)
+
+                let categoryForDeviationSelect = document.createElement('select');
+                categoryForDeviationSelect.addEventListener('change', e => updateDeviation(e));
+                categoryForDeviationSelect.id = 'deviation-category-select';
+                categoryForDeviationSelect.name = 'deviation-category';
+                let categoryForDeviationLabel = document.createElement('label');
+                categoryForDeviationLabel.textContent = 'Kategorie deviace';
+                let storedDeviationData = await getStoredDeviatonData(e.target.dataset.deviationId);
+
+                categoriesForDeviation.forEach(category => {
+                    let categoryOption = document.createElement('option');
+                    categoryOption.textContent = category;
+                    categoryOption.value = category;
+                    categoryForDeviationSelect.append(categoryOption);
+                    if (storedDeviationData['details']['category'] == category) {
+                        categoryOption.selected = true;
+                    }
+                })
+
+                categoryForDeviationContainer.append(categoryForDeviationLabel);
+                categoryForDeviationContainer.append(categoryForDeviationSelect);
+
+                let categoryForCountermeasureSelect = document.createElement('select');
+                categoryForCountermeasureSelect.addEventListener('change', e => updateDeviation(e));
+                categoryForCountermeasureSelect.id = 'deviation-countermeasure-select';
+                categoryForCountermeasureSelect.name = 'deviation-countermeasure';
+                let categoryForCountermeasureLabel = document.createElement('label');
+                categoryForCountermeasureLabel.textContent = 'Kategorie opatření';
+
+                categoriesForCountermeasures.forEach(counterMeasure => {
+                    let categoryOption = document.createElement('option');
+                    categoryOption.textContent = counterMeasure;
+                    categoryOption.value = counterMeasure;
+                    categoryForCountermeasureSelect.append(categoryOption);
+                    if (storedDeviationData['details']['countermeasure'] == counterMeasure) {
+                        categoryOption.selected = true;
+                    }
+                })
+
+                categoryForCountermeasureContainer.append(categoryForCountermeasureLabel);
+                categoryForCountermeasureContainer.append(categoryForCountermeasureSelect);
+
+                document.getElementById('modal-text').append(categoriesWrapper);
+                
+                let freeTextDiv = document.createElement('div');
+                freeTextDiv.style = 'display: flex; flex-flow: row; justify-content: space-between; margin-top: 3vh;';
+                
+                let freeText = document.createElement('textarea');
+                freeText.style = "width: 90%; resize: none; padding: 0.5vh 0.5vw; font-family: 'Noto Sans'; font-size: clamp(12px, 2vh, 24px)";
+                freeText.name = "deviation-text";
+                if (storedDeviationData['details']['text']) {
+                    freeText.value = storedDeviationData['details']['text'];
+                }
+
+                freeText.addEventListener('change', e => updateDeviation(e));
+                let freeTextLabel = document.createElement('label');
+                freeTextLabel.textContent = "Volný text";
+                
+                freeTextDiv.append(freeTextLabel);
+                freeTextDiv.append(freeText);
+
+                document.getElementById('modal-text').append(freeTextDiv);
+
+            })
+
+            cell.querySelector('div.result-div').append(deviationDiv);
+            cell.classList.add('target-not-reached')
+        }
+
+        return true
+    }
+
+    async function updateDeviation(event) {
+        let changedItem = event.target.name;
+        let changedValue = event.target.value;
+        let deviationId = event.target.closest('#modal').dataset.deviationId;
+        const resp = await fetch(updateDeviationUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 'deviation_id': deviationId, 'changed_item': changedItem, 'changed_value': changedValue })
+        })
+
+        let data = await resp.json();
+    }
+
+    async function fillInData(cell, data) {
+        if (cell.dataset.api == 'quality') {
+            cell.querySelector('div.chart-div')?.remove();
+            cell.querySelector('div.result-div')?.remove();
+            let okNOKchartDiv = document.createElement('div');
+            okNOKchartDiv.classList.add('chart-div');
+            cell.append(okNOKchartDiv);
+
+            let resultsDiv = document.createElement('div');
+            resultsDiv.classList.add('result-div')
+            cell.append(resultsDiv);
+
+            okNOKchartCanvas = document.createElement('canvas');
+            okNOKchartDiv.append(okNOKchartCanvas);
+
+            okNOKchartCanvas.style.height = "90%";
+            okNOKchartCanvas.width = "100%";
+            okNOKchartCanvas.height = "90%";
+
+            let okNOKpartsDiv = document.createElement('div')
+            okNOKpartsDiv.textContent = `OK: ${data['ok_parts']} | NOK: ${data['nok_parts']}`
+
+            resultsDiv.append(okNOKpartsDiv)
+
+            const chartData = {
+                labels: [
+                    'OK',
+                    'NOK'
+                ],
+                datasets: [{
+                    data: [data['ok_parts'], data['nok_parts']],
+                    backgroundColor: [
+                        'rgb(50, 205, 50)',
+                        'rgb(255, 0, 0)',
+                    ],
+                }],
+            }
+
+            const qualityChart = new Chart(okNOKchartCanvas, {
+                type: 'pie',
+                data: chartData,
+                plugins: [ChartDataLabels],
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false,
+                        },
+                        datalabels: {
+                            color: '#FFFFFF',
+                            font: {
+                                weight: 'bold',
+                                size: 14,
+                                family: 'Noto Sans',
+                            },
+                            formatter: (value, ctx) => {
+                                const datapoints = ctx.chart.data.datasets[0].data;
+                                const total = datapoints.reduce((total, datapoint) => total + datapoint, 0);
+                                const percentage = value / total * 100;
+                                return percentage.toFixed(0) + "%";
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        if (cell.dataset.api == 'deliveries') {
+            cell.querySelector('div.chart-div')?.remove();
+            cell.querySelector('div.result-div')?.remove();
+            let deliveriesChartDiv = document.createElement('div');
+            deliveriesChartDiv.classList.add('chart-div');
+            cell.append(deliveriesChartDiv);
+
+            deliveriesChartCanvas = document.createElement('canvas');
+            deliveriesChartDiv.append(deliveriesChartCanvas);
+
+            deliveriesChartCanvas.style.height = "100%";
+            deliveriesChartCanvas.width = "100%";
+            deliveriesChartCanvas.height = "100%";
+
+            let resultsDiv = document.createElement('div');
+            resultsDiv.classList.add('result-div')
+            cell.append(resultsDiv);
+
+            let deliveriesDiv = document.createElement('div')
+            deliveriesDiv.textContent = `Dodáno: ${data['delivered_parts']} | Nedodáno: ${data['target_deliveries'] - data['delivered_parts']}`
+
+            resultsDiv.append(deliveriesDiv)
+
+            const chartData = {
+                labels: [
+                    'Delivered',
+                    'Not delivered'
+                ],
+                datasets: [{
+                    data: [data['delivered_parts'], data['target_deliveries'] - data['delivered_parts'] ],
+                    backgroundColor: [
+                        'rgb(50, 205, 50)',
+                        'rgb(255, 0, 0)',
+                    ],
+                }],
+            }
+
+            const deliveriesChart = new Chart(deliveriesChartCanvas, {
+                type: 'pie',
+                data: chartData,
+                plugins: [ChartDataLabels],
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false,
+                        },
+                        datalabels: {
+                            color: '#FFFFFF',
+                            font: {
+                                weight: 'bold',
+                                size: 14,
+                                family: 'Noto Sans',
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        if (cell.dataset.api == 'time_losses') {
+            cell.innerHTML = '';
+            data['result'].forEach(timeLoss => {
+                let timeLossDiv = document.createElement('div');
+                let timeLossBeginning = getDatetimeString(timeLoss[0])
+                let timeLossEnd = getDatetimeString(timeLoss[1])
+                timeLossDiv.textContent = `${timeLossBeginning} - ${timeLossEnd} | ${translations[timeLoss[2]]}`;
+                timeLossDiv.classList.add('time-loss');
+                timeLossDiv.dataset.timeLossId = timeLoss[3];
+                timeLossDiv.addEventListener('click', (event) => {
+                    fetchTimeLossDetail(event.target.dataset.timeLossId)
+                    .then(detail => showTimeLossDetail(detail));
+                })
+
+                cell.append(timeLossDiv);
+            });
+        }
+
+        if (cell.dataset.api == 'safety') {
+            cell.innerHTML = '';
+            if (data['result'] == 0) {
+                for (const [key, value] of Object.entries(data['details'])) {
+                    let safetyDiv = document.createElement('div');
+                    safetyDiv.textContent = key;
+                    safetyDiv.classList.add('safety-div');
+                    cell.classList.add('target-not-reached');
+                    safetyDiv.addEventListener('click', () => {
+                        window.open(`http://10.49.34.115/accidents/form_injury/${value}`)
+                    })
+                    cell.append(safetyDiv);
+                }
+            }
+        }
+
+        return true
+    }
+
+    function getDatetimeString(dtString) {
+        let dtObject = new Date(dtString);
+        return `${dtObject.getHours().toString().padStart(2, '0')}:${dtObject.getMinutes().toString().padStart(2, '0')}`
+
+    }
+
+    function showTimeLossDetail(detail) {
+        modal.style.display = "block";
+        document.getElementById('modal-text').innerHTML = "";
+
+        if (Object.keys(detail).length === 0) {
+            document.getElementById('modal-text').innerHTML += `<p>Nenalezen odpovídající záznam v ThingWorx</p>`;
+            return false
+        }
+
+        for (const [timestamp, reason] of Object.entries(detail)) {
+            document.getElementById('modal-text').innerHTML += `<p>Prostoj dle ThingWorx: ${reason} </p>`;
+            document.getElementById('modal-text').innerHTML += `<p>Časové razítko ThingWorx: ${new Date(timestamp).toLocaleDateString()} ${new Date(timestamp).toLocaleTimeString()}  </p>`;
+            document.getElementById('modal-text').innerHTML += `</br>`
+        }
+    }
+
+
+    const toISOStringWithTimezone = date => {
+        const tzOffset = -date.getTimezoneOffset();
+        const diff = tzOffset >= 0 ? '+' : '-';
+        const pad = n => `${Math.floor(Math.abs(n))}`.padStart(2, '0');
+        return date.getFullYear() +
+            '-' + pad(date.getMonth() + 1) +
+            '-' + pad(date.getDate()) +
+            'T' + pad(date.getHours()) +
+            ':' + pad(date.getMinutes()) +
+            ':' + pad(date.getSeconds()) +
+            diff + pad(tzOffset / 60) +
+            ':' + pad(tzOffset % 60);
+    };
+
+    async function getStoredDeviatonData(deviationId) {
+        const resp = await fetch(`${updateDeviationUrl}?deviation_id=${deviationId}`);
+
+        return resp.json();
+    }
+
+</script>
+{% endblock %}

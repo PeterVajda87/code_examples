@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DMS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        
+        @font-face {
+            font-family: 'Noto Sans';
+            src: url('/media/fonts/NotoSans-Light.ttf');
+        }
+
+        @font-face {
+            font-family: 'Noto Sans';
+            font-weight: bold;
+            src: url('/media/fonts/NotoSans-Regular.ttf');
+        }
+        
+        a {
+            text-decoration: none;
+            color: white;
+        }
+        
+        body {
+            display: grid;
+            grid-template-rows: 6% 94%;
+            grid-template-columns: 5% 95%;
+            height: 100vh;
+            width: 100vw;
+            font-family: 'Noto Sans';
+            /* overflow: hidden; */
+        }
+
+        section[name="top-menu"] {
+            grid-row: 1/2;
+            grid-column: 1/3;
+            display: grid;
+            grid-template-columns: 8fr 0.75fr 0.75fr 0.5fr;
+            background-color: rgba(0,69,126,1);
+            justify-content: center;
+            align-items: center;
+        }
+
+        section[name="main-content"] {
+            grid-row: 2/3;
+            grid-column: 2/3;
+        }
+
+        section[name="left-menu"] {
+            grid-row: 2/3;
+            grid-column: 1/2;
+            background-color: white;
+            border-right: 1px double rgb(0, 69, 126);
+        }
+
+        h1.page-title {
+            color: white;
+            font-size: clamp(16px, 2.25vh, 40px);
+            text-align: center;
+        }
+
+        .presence {
+            background-image: url("/static/dms/presence.png");
+        }
+
+        .absence {
+            background-image: url("/static/dms/absence.png");
+            padding: 0.85rem !important;
+        }
+        
+        .shift-change {
+            background-image: url("/static/dms/shift-change.png");
+            padding: 0.75rem !important;
+        }
+        
+        .value-streamer {
+            background-image: url("/static/dms/valuestreamer-logo.png");
+        }
+        
+        .kpi {
+            background-image: url("/static/dms/kpi.png");
+            padding: 1rem !important;
+        }
+        
+        .left-menu-icon {
+            width: 5vw;
+            aspect-ratio: 1/1;
+            cursor: pointer;
+            background-size: contain;
+            background-origin: content-box;
+            background-repeat: no-repeat;
+            padding: 0.5rem;
+        } 
+
+        input[type="datetime-local"] {
+            box-sizing: border-box;
+            font-family: 'Noto Sans';
+            padding: 0.25rem;
+        }
+
+        .user-icon {
+            aspect-ratio: 1 / 1;
+            height: 5vh;
+            margin: 0.25vh;
+            border-radius: 50%;
+            background-color: lightpink;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: clamp(12px, 2.5vh, 30px);
+            cursor: pointer;
+        }
+
+        .active-icon {
+            background-color: rgba(0, 69, 126, 0.5);
+        }
+
+        .live { 
+            display: flex; 
+            justify-content: center; 
+            color: white; 
+            cursor: pointer;
+        }
+
+        select {
+            box-sizing: border-box;
+            font-family: 'Noto Sans';
+            padding: 0.25rem;
+            font-size: clamp(12px, 1.75vh, 30px);
+        }
+
+    </style>
+
+    {% block style %}
+    {% endblock %}
+
+    {% block script-top %}
+    {% endblock %}
+
+</head>
+<body>
+    <section name="left-menu" id="left-menu">
+        <a href="{% url 'dms:operators' %}">
+            <div class="presence left-menu-icon" id="presence-icon"></div>
+        </a>
+
+        <a href="{% url 'dms:absences' %}">
+            <div class="absence left-menu-icon" id="absence-icon"></div>
+        </a>
+
+        <a href="{% url 'dms:shift_change' %}">
+            <div class="shift-change left-menu-icon" id="shift-change-icon"></div>
+        </a>
+
+        <a href="{% url 'dms:intervals' %}">
+            <div class="kpi left-menu-icon" id="intervals-icon"></div>
+        </a>
+
+        <a href="https://knorr-bremse.valuestreamer.de/team/9c72a17a-c44c-48b8-854c-425c190ea505/46875b98-1dee-4afe-b02a-d99a75a5356e" target="_blank">
+            <div class="value-streamer left-menu-icon"></div>
+        </a>
+    </section>
+        
+    <section name="top-menu" id="top-menu">
+        <h1 class="page-title"><a href="{% url 'dms:index' %}">Homepage</a>{% block page_title %} {% endblock %}</h1>
+        <div class="user-icon">
+            {% if user.is_authenticated %} 
+                <a href="{% url 'logout' %}?next=/dms">{{user.first_name.0}}{{user.last_name.0}}</a>
+            {% else %}
+                <a href="{% url 'login' %}next=/dms">??</a>
+            {% endif %}
+        </div>
+        <div style="justify-self: self-end; padding-right: 1vw"><input type="datetime-local" name="datetime-input" id="datetime-input" style="height: 100%" readonly step="60"></div>
+        <div class="live" id="live" onclick="changeMode(this)" data-current-mode="live">LIVE</div>
+    </section>
+        
+    <section name="main-content">
+        {% block main-content %}
+        {% endblock %}
+    </section>
+
+    
+    <script>
+
+        function setCurrentTime() {
+            let now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            now.setSeconds(0);
+            now.setMilliseconds(0);
+            dateTimeInput.value = now.toISOString().slice(0, -5);
+        }
+        
+        function setTimeInterval() {
+            let intervalId = setInterval(() => {
+                let now = new Date();
+                now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                now.setSeconds(0);
+                now.setMilliseconds(0);
+                dateTimeInput.value = now.toISOString().slice(0, -5);
+            }, 1_000);
+
+            window.localStorage.setItem('datetimeInterval', intervalId);
+        }
+
+        const dateTimeInput = document.getElementById('datetime-input')
+        document.addEventListener('DOMContentLoaded', () => {
+            setCurrentTime();
+            setTimeInterval();
+        })
+
+        function changeMode(modeToggler) {
+            if (modeToggler.dataset.currentMode == 'live') {
+                clearInterval(window.localStorage.getItem('datetimeInterval'));
+                document.getElementById('live').textContent = "ZÁZNAM";
+                dateTimeInput.removeAttribute('readonly');
+                dateTimeInput.addEventListener('change', storeDesiredTime)
+                modeToggler.dataset.currentMode = 'historical';
+            } else {
+                setTimeInterval();
+                setCurrentTime();
+                document.getElementById('live').textContent = "LIVE";
+                dateTimeInput.setAttribute('readonly', true);
+                modeToggler.dataset.currentMode = 'live';
+                dateTimeInput.removeEventListener('change', storeDesiredTime);
+                window.localStorage.removeItem('desiredDatetime');
+                triggerTimeChanged();
+            }
+        }
+
+        function storeDesiredTime() {
+            window.localStorage.setItem('desiredDatetime', dateTimeInput.value);
+            triggerTimeChanged();
+
+        }
+    </script>
+    
+{% block script-bottom %}
+{% endblock %}
+</body>
+</html>

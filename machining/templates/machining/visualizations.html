@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://www.gstatic.com/charts/loader.js"></script>
+    <title>Vizualizace prostojů</title>
+</head>
+<body>
+    <div id="chart_div" style="width: 900px; height: 500px;"></div>
+</body>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        google.charts.load('current', { packages: ['corechart', 'treemap'] });
+        google.charts.setOnLoadCallback(drawChart);
+    })
+
+    async function drawChart() {
+        var data = google.visualization.arrayToDataTable([
+            [   {label: 'Downtime'},
+                {label: 'Category'},
+                {label: 'Duration (mins)', type: 'number'},
+                {type: 'number', role: 'tooltip'}
+            ],
+        ]);
+
+        let downtimesData = await fetch(window.location.href, {
+            method: 'POST',
+            body: {}
+        })
+
+        downtimesData = await downtimesData.json()
+
+        console.log(downtimesData)
+
+        data.addRows(downtimesData['data'])
+
+        tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
+
+        tree.draw(data, {
+            fontColor: 'black',
+            showScale: true,
+            legend: 'none',
+            generateTooltip: showStaticTooltip
+        });
+
+        function showStaticTooltip(row, size, value) {
+            return '<div style="background-color: white; padding: 1rem">' + size + '</div>'
+        }
+    }
+
+</script>
+
+</html>

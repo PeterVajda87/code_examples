@@ -1,0 +1,74 @@
+{% extends 'reman_2/base.html' %}
+
+{% block style %}
+<style>
+    table {
+        user-select: none;
+        position: relative;
+        top: 5vh;
+        max-width: 100%;
+        width: 100vw;
+        height: 95vh;
+        border: 1px solid lightgray;
+        border-collapse: collapse;
+        color: white;
+        font-size: small;
+        background-color: hsla(100, 50%, 5%, .9);
+    }
+
+    thead {
+        position: sticky;
+        top: 0vh;
+        background-color: black;
+    }
+
+    tbody {
+        overflow-y: scroll;
+        max-height: 95vh;
+    }
+
+    tr {
+        border-bottom: 1px solid lightgray;
+    }
+
+    tr:nth-child(even) {
+        background-color: hsla(200, 50%, 20%, .9);
+    }
+
+    td {
+        padding: 0 .25rem;
+    }
+</style>
+{% endblock %}
+{% block body %}
+
+<table>
+    <thead>
+        <tr>
+            <th>Order</th>
+            <th>Type</th>
+            <th>Requirement qty</th>
+            <th>Withdrawn qty</th>
+            <th>Material</th>
+            <th>Pegged requirement</th>
+            <th>NOK</th>
+        </tr>
+
+    </thead>
+
+    <tbody>
+        {% for row in components %}
+        <tr>
+            <td>{{row.order}}</td>
+            <td>{{row.order.}}</td>
+            <td>{{row.requirement_quantity}}</td>
+            <td>{{row.quantity_withdrawn}}</td>
+            <td>{{row.material}}</td>
+            <td>{{row.pegged_requirement}}</td>
+            <td></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% endblock %}

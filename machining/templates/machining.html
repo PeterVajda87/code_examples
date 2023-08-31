@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/static/machining/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
+    <title>Opracování</title>
+</head>
+<body>
+    <header>
+        <div id="header-wrapp">
+            <label for="stroj">
+                stroj
+                <select name="stroj" id="stroj" class="input-elements">
+                    {% for machines in data_for_selects%}
+                    <option value='{{machines}}'>{{machines}}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label for="prostoj">
+                kategorie prostoje
+                <select name="prostoj" id="prostoj" class="input-elements" onchange="addReasons(this.value)" >                    
+                </select>
+            </label>
+            <label for="duvod">
+                důvod
+                <select id="duvod" name="duvod" class="input-elements">
+                </select>
+            </label>
+            <label for="time-start">
+                čas začátku
+            <input type="time" id="time-start" class="input-elements" name="time-start">
+            </label>
+            <label for="time-end">
+                čas konce
+            <input type="time" id="time-end" class="input-elements" name="time-end">
+            </label>
+
+            
+
+            <div id="button-wrapper">
+                <input type="button" value="Přidat" onclick="sendForm()">
+                <input type="button" value="aktualizovat" onclick="refreshSite()">
+            </div>
+        </div>
+    </header>
+    <main>
+        <div id="tableWrapp">
+            <table id="records">
+                <thead>
+                    <tr id="table_heading">                        
+                        <th class="thHower" onclick="sortTable(0, 'text')">stroj</th>                                            
+                        <th class="thHower" onclick="sortTable(1, 'text')">kategorie prostoje</th>                                            
+                        <th class="thHower" onclick="sortTable(2, 'text')">Důvod</th>                                            
+                        <th class="thHower" onclick="sortTable(3, 'date')">Začátek</th>
+                        <th class="thHower" onclick="sortTable(4, 'date')">Konec</th>                                                
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in db_records %}
+                        <tr>
+                            <td>{{item.stroj}}</td>
+                            <td>{{item.prostoj}}</td>
+                            <td>{{item.duvod}}</td>
+                            <td>{{item.zacatek_prostoje|date:"Y-m-d H:i"}}</td>
+                            <td>{{item.konec_prostoje|date:"Y-m-d H:i"}}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>            
+        </div>
+    </main>
+
+<script>
+
+    let prostojeDic = {{prostoje|safe}}
+    let prostojeKategorie = Object.keys(prostojeDic)
+
+    for(let i = 0; i < prostojeKategorie.length; i++){
+            let option = document.createElement('option')
+            option.value = prostojeKategorie[i]
+            option.innerHTML = prostojeKategorie[i]
+            
+            parent = document.getElementById('prostoj')
+            parent.append(option)
+    }
+
+    addReasons(prostojeKategorie[0])
+    function addReasons(obj){
+
+        parent = document.getElementById('duvod')
+        parent.innerHTML = ''
+
+        console.log(obj)
+        for(let i = 0; i < prostojeDic[`${obj}`].length; i++){
+            let option = document.createElement('option')
+            option.value = prostojeDic[`${obj}`][i]
+            option.innerHTML = prostojeDic[`${obj}`][i]
+            
+            parent = document.getElementById('duvod')
+            parent.append(option)
+        }
+    }
+
+    let date = new Date()
+    let minutes = date.getMinutes()
+    let hours = date.getHours()
+
+    if(hours < 10){
+        hours = "0" + hours
+    }
+    if(minutes < 10){
+        minutes = '0' + minutes
+    }
+    let time = `${hours}:${minutes}`
+    let timePlusOne = `${hours+1}:${minutes}`
+    
+    document.getElementById('time-start').value = time
+    document.getElementById('time-end').value = timePlusOne
+
+    function sendForm(){
+        sendData().then(resp => refreshSite(resp));
+    }
+
+
+    async function sendData() {
+        const url = window.location.href;
+
+        const resp = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                'stroj': document.getElementById('stroj').value,
+                'prostoj': document.getElementById('prostoj').value,
+                'duvod': document.getElementById('duvod').value,
+                'time-start': document.getElementById('time-start').value,
+                'time-end': document.getElementById('time-end').value,
+
+            })
+        })
+
+        return resp.json();
+    }
+
+    function refreshSite(){
+        window.location.reload();
+    }
+
+    function sortTable(tableColumn, type) {
+        let switchcount = 0;
+        let currentRow;
+        let nextRow;
+        const table = document.getElementById("records");
+        let switching = true;
+        let dir = "desc";
+
+        while (switching) {
+            switching = false;
+            const rows = table.rows;
+
+            for (i = 1; i < (rows.length - 1); i++) {
+                shouldSwitch = false;
+
+                currentRow = rows[i].getElementsByTagName("TD")[tableColumn];
+                nextRow = rows[i + 1].getElementsByTagName("TD")[tableColumn];
+
+                if (dir == "asc") {
+                    if (type == 'text') {
+                        if (currentRow.innerHTML.toLowerCase() > nextRow.innerHTML.toLowerCase()) {
+                            shouldSwitch = true;
+                            break;
+                        }
+                    } else if (type == 'number') {
+                        if (Number(currentRow.innerHTML) > Number(nextRow.innerHTML)) {
+                            shouldSwitch = true;
+                            break;
+                        }
+                    } else {
+
+                        currentRow = new Date(currentRow.innerHTML)
+
+                        nextRow = new Date(nextRow.innerHTML)
+
+                        if (currentRow > nextRow) {
+                            shouldSwitch = true;
+                            break;
+                        }
+                    }
+                } else if (dir == "desc") {
+                    if (type == 'text') {
+                        if (currentRow.innerHTML.toLowerCase() < nextRow.innerHTML.toLowerCase()) {
+                            shouldSwitch = true;
+                            break;
+                        }
+                    } else if (type == 'number') {
+                        if (Number(currentRow.innerHTML) < Number(nextRow.innerHTML)) {
+                            shouldSwitch = true;
+                            break;
+                        }
+                    } else {
+                        currentRow = new Date(currentRow.innerHTML)
+
+                        nextRow = new Date(nextRow.innerHTML)
+
+                        console.log(currentRow.innerHTML < nextRow.innerHTML)
+                        if (currentRow < nextRow) {
+                            shouldSwitch = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+
+
+            if (shouldSwitch) {
+                rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+                switching = true;
+                switchcount++;
+            } else {
+                if (switchcount == 0 && dir == "desc") {
+                    dir = "asc";
+                    switching = true;
+                }
+            }
+        }
+    }
+
+    function saveChart(){
+        var link = document.createElement("a");
+        link.setAttribute("href", 'http://10.49.34.115:7999/machining/machining_export/');
+        document.body.appendChild(link);
+        link.click();
+    }
+</script>
+    <input type="button" id="xd" value="Export to XLSX" style="margin-left: 5vw;" onclick="saveChart()">
+</body>
+</html>

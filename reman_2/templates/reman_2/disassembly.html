@@ -1,0 +1,290 @@
+{% extends 'reman_2/base.html' %}
+
+{% block style %}
+<style>
+    div {
+        color: white;
+    }
+
+    table {
+        position: relative;
+        top: 5vh;
+        max-height: 95vh;
+        /* width: 200vw; */
+        overflow: auto;
+        max-width: 200vw;
+        min-width: 100vw;
+        border: 1px solid lightgray;
+        border-collapse: collapse;
+        color: white;
+        font-size: small;
+        table-layout: fixed;
+        background-color: hsla(100, 50%, 5%, .9);
+        cursor: pointer;
+    }
+
+    thead {
+        position: sticky;
+        top: 0vh;
+        background-color: black;
+    }
+</style>
+{% endblock %}
+
+{% block scripts-top %}
+<script src="/static/xlsx.full.min.js"></script>
+{% endblock %}
+
+{% block body %}
+
+<div class="wrapper">
+    <table id="table">
+        <thead>
+            <tr id="table-heading">
+                <th>Zákazník</th>
+                <th>Skupina FG materiálů</th>
+                <th>Skupinový výsledek</th>
+                <th>FG materiál</th>
+                <th>CC in</th>
+                <th>FG exp</th>
+                <th>FG out</th>
+                <th>FG rate %</th>
+                <th>FG NOK</th>
+            </tr>
+        </thead>
+
+        <tbody>
+        </tbody>
+    </table>
+</div>
+
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+
+    const data = {{results|safe}}
+    const tableBody = document.querySelector('tbody');
+
+    populateTable(data);
+
+    function populateTable(data) {
+
+        var rowsCount = 0
+        var customerIndices = new Map();
+        var cmGroupIndices = new Map();
+        var cmGroupResults = new Array();
+        var cmIndices = new Map();
+        var cmResults = new Array();
+        var qmResults = new Array();
+        var damageCodes = new Set();
+        var initial = 0
+        var excludedKeys = ['table_rows', 'qty_in', 'qty_out', 'qty_wanted', 'rate_component_material', 'rate_material_group', 'rate_root_material', 'rate_cm_group', 'no_of_different_cm', 'q3']
+
+        for (const customer of Object.keys(data)) {
+            rowsCount += data[customer]['table_rows'];
+            customerIndices.set(customer, data[customer]['table_rows']);
+            for (const cmMaterialGroup of Object.keys(data[customer])) {
+                if (!(excludedKeys.includes(cmMaterialGroup))) {
+                    cmGroupIndices.set(`${cmMaterialGroup}|${customer}`, data[customer][cmMaterialGroup]['table_rows'])
+                }
+                for (const key of Object.keys(data[customer][cmMaterialGroup])) {
+                    if (key == 'rate_cm_group') {
+                        cmGroupResults.push(data[customer][cmMaterialGroup]['rate_cm_group'])
+                    }
+                }
+
+                for (const cm of Object.keys(data[customer][cmMaterialGroup])) {
+                    if (!(excludedKeys.includes(cm))) {
+                        cmIndices.set(`${cm}|${customer}`, 1);
+                        let resultsArray = new Array();
+                        resultsArray.push(data[customer][cmMaterialGroup][cm]['qty_in']);
+                        resultsArray.push(data[customer][cmMaterialGroup][cm]['qty_wanted']);
+                        resultsArray.push(data[customer][cmMaterialGroup][cm]['qty_out']);
+                        resultsArray.push(data[customer][cmMaterialGroup][cm]['rate_component_material']);
+                        cmResults.push(resultsArray)
+
+                        let resultsMap = new Map();
+
+                        for (const order of Object.keys(data[customer][cmMaterialGroup][cm]['q3'])) {
+                            resultsMap.set(order, data[customer][cmMaterialGroup][cm]['q3'][order])
+                        }
+
+                        qmResults.push(resultsMap)
+                    }
+
+                }
+            }
+        }
+
+        for (let i = 0; i < rowsCount; i++) {
+            let newRow = document.createElement('tr');
+            for (let j = 0; j < 9; j++) {
+                let newCell = document.createElement('td');
+                newCell.textContent = "test";
+                newRow.append(newCell);
+            }
+            tableBody.append(newRow);
+        }
+
+        let customerColumnCells = Array.from(tableBody.querySelectorAll('tr > td:first-of-type'));
+        let cmGroupColumnCells = Array.from(tableBody.querySelectorAll('tr > td:nth-of-type(2)'));
+        let cmGroupResultsColumnCells = Array.from(tableBody.querySelectorAll('tr > td:nth-of-type(3)'));
+        let cmColumnCells = Array.from(tableBody.querySelectorAll('tr > td:nth-of-type(4)'));
+        let cmInColumnCells = Array.from(tableBody.querySelectorAll('tr > td:nth-of-type(5)'));
+        let cmExpColumnCells = Array.from(tableBody.querySelectorAll('tr > td:nth-of-type(6)'));
+        let cmOutColumnCells = Array.from(tableBody.querySelectorAll('tr > td:nth-of-type(7)'));
+        let cmRateColumnCells = Array.from(tableBody.querySelectorAll('tr > td:nth-of-type(8)'));
+        let cmQ3ColumnCells = Array.from(tableBody.querySelectorAll('tr > td:nth-of-type(9)'));
+
+        for (let [customer, customerRowSpan] of customerIndices) {
+            customerColumnCells[initial].textContent = customer;
+            customerColumnCells[initial].rowSpan = customerRowSpan;
+            customerColumnCells[initial].dataset.spanned = 'true';
+            initial = customerRowSpan;
+        }
+
+        initial = 0
+        tempIndex = 0
+
+        for (let [cmMaterialGroup, cmMaterialGroupRowSpan] of cmGroupIndices) {
+            cmGroupColumnCells[initial].textContent = cmMaterialGroup.split("|")[0];
+            cmGroupColumnCells[initial].rowSpan = cmMaterialGroupRowSpan;
+            cmGroupColumnCells[initial].dataset.spanned = 'true';
+
+            cmGroupResultsColumnCells[initial].textContent = `${Math.round((parseFloat(cmGroupResults[tempIndex]) * 100) * 100) / 100}%`;
+            cmGroupResultsColumnCells[initial].rowSpan = cmMaterialGroupRowSpan;
+            cmGroupResultsColumnCells[initial].dataset.spanned = 'true';
+
+            initial = initial + cmMaterialGroupRowSpan;
+            tempIndex += 1;
+        }
+
+        initial = 0
+        tempIndex = 0
+
+        for (let [cm, cmRowSpan] of cmIndices) {
+            cmColumnCells[initial].textContent = cm.split("|")[0];
+            cmColumnCells[initial].rowSpan = cmRowSpan;
+            cmColumnCells[initial].dataset.spanned = 'true';
+            
+            cmInColumnCells[initial].textContent = cmResults[tempIndex][0];
+            cmInColumnCells[initial].rowSpan = cmRowSpan;
+            cmInColumnCells[initial].dataset.spanned = 'true';
+
+            cmExpColumnCells[initial].textContent = cmResults[tempIndex][1];
+            cmExpColumnCells[initial].rowSpan = cmRowSpan;
+            cmExpColumnCells[initial].dataset.spanned = 'true';
+
+            cmOutColumnCells[initial].textContent = cmResults[tempIndex][2];
+            cmOutColumnCells[initial].rowSpan = cmRowSpan;
+            cmOutColumnCells[initial].dataset.spanned = 'true';
+
+            cmRateColumnCells[initial].textContent = `${Math.round(cmResults[tempIndex][3] * 100)}%`;
+            cmRateColumnCells[initial].rowSpan = cmRowSpan;
+            cmRateColumnCells[initial].dataset.spanned = 'false';
+
+            let sum = 0
+            if (qmResults[tempIndex].has('damage_codes')) {
+                Object.entries(qmResults[tempIndex].get('damage_codes')).map(arr => {
+                    sum += arr[1]
+                    damageCodes.add(arr[0]);
+                });
+            }
+            cmQ3ColumnCells[initial].textContent = sum;
+            cmQ3ColumnCells[initial].title = qmResults[tempIndex].has('damage_codes') ? Object.entries(qmResults[tempIndex].get('damage_codes')) : "0";
+            cmQ3ColumnCells[initial].rowSpan = cmRowSpan;
+            cmQ3ColumnCells[initial].dataset.spanned = 'true';
+
+            initial = initial + cmRowSpan;
+            tempIndex += 1
+        }
+
+        damageCodes.forEach(damageCode => {
+            let damageCodeTh = document.createElement('th');
+            damageCodeTh.textContent = damageCode;
+            damageCodeTh.dataset.damageCode = damageCode;
+            document.getElementById('table-heading').append(damageCodeTh);
+            for (row of tableBody.rows) {
+                let newCell = row.insertCell(-1);
+                newCell.textContent = 0;
+            }
+        })
+
+        qmResults.forEach((qmResultsMap, index) => {
+            let tableRow = index;
+            if (qmResultsMap.has('damage_codes')) {
+                for (const [damageCode, damageQty] of Object.entries(qmResultsMap.get('damage_codes'))) {
+                    tableBody.rows[tableRow].cells[document.querySelector(`[data-damage-code="${damageCode}"]`).cellIndex].textContent = damageQty;
+                    // console.log(document.querySelector(`[data-damage-code="${damageCode}"]`).cellIndex);
+                }
+                // console.log(tableBody.rows[index].);
+            }
+        })
+
+        tableBody.querySelectorAll('tr > td:nth-of-type(9)').forEach(cell => {
+            if (!(cell.dataset.spanned)) {
+                cell.remove();
+            }
+        })
+
+        tableBody.querySelectorAll('tr > td:nth-of-type(8)').forEach(cell => {
+            if (!(cell.dataset.spanned)) {
+                cell.remove();
+            }
+        })
+
+        tableBody.querySelectorAll('tr > td:nth-of-type(7)').forEach(cell => {
+            if (!(cell.dataset.spanned)) {
+                cell.remove();
+            }
+        })
+
+        tableBody.querySelectorAll('tr > td:nth-of-type(6)').forEach(cell => {
+            if (!(cell.dataset.spanned)) {
+                cell.remove();
+            }
+        })
+
+        tableBody.querySelectorAll('tr > td:nth-of-type(5)').forEach(cell => {
+            if (!(cell.dataset.spanned)) {
+                cell.remove();
+            }
+        })
+
+
+        tableBody.querySelectorAll('tr > td:nth-of-type(4)').forEach(cell => {
+            if (!(cell.dataset.spanned)) {
+                cell.remove();
+            }
+        })
+
+        tableBody.querySelectorAll('tr > td:nth-of-type(3)').forEach(cell => {
+            if (!(cell.dataset.spanned)) {
+                cell.remove();
+            }
+        })
+        
+        tableBody.querySelectorAll('tr > td:nth-of-type(2)').forEach(cell => {
+            if (!(cell.dataset.spanned)) {
+                cell.remove();
+            }
+        })
+
+        tableBody.querySelectorAll('tr > td:first-of-type').forEach(cell => {
+            if (!(cell.dataset.spanned)) {
+                cell.remove();
+            }
+        })
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (String.fromCharCode(e.keyCode).toLowerCase() === 'x') {
+            let workbook = XLSX.utils.table_to_book(document.getElementById("table"));
+            XLSX.writeFile(workbook, "Disassembly.xlsb");
+        }
+    })
+
+</script>
+{% endblock %}

@@ -1,0 +1,219 @@
+{% extends 'reman_2/base.html' %}
+
+{% block style %}
+<style>
+    
+.wrapper {
+    width: 33vmax;
+    height: 33vmax;
+    min-width: 500px;
+    min-height: 500px;
+    margin: auto;
+    background-color: hsla(200, 80%, 20%, 0.9);
+    display: flex;
+    flex-flow: column;
+    align-items: center;
+    border-radius: 5%;
+    box-shadow: 0 0 20px 0 hsla(200, 10%, 20%, 1);
+    border: 1px solid white;
+    justify-content: space-around;
+}
+
+.wrapper .title {
+    color: white;
+    padding: 2rem 0;
+    font-size: larger;
+    cursor: default;
+}
+
+.hidden {
+    display: none !important;
+}
+
+input[type="file"] {
+    display: none;
+}
+
+input[type="submit"] {
+    border: none;
+}
+
+.file-upload {
+    padding: 1rem 2rem;
+    cursor: pointer;
+    background-color: hsla(200, 10%, 20%, 1);
+    border-radius: 5px;
+    color: white;
+    user-select: none;
+}
+
+.file-upload:hover {
+    outline: 1px solid white;
+}
+
+.excel-icon {
+    filter: invert(1);
+}
+
+.thumbnail-container {
+    display: flex;
+    flex-flow: row;
+    flex-wrap: wrap;
+    height: 15vh;
+}
+
+.thumbnail-container > div {
+    display: flex;
+    flex-flow: column;
+    align-items: center;
+    color: white;
+    row-gap: 0.5rem;
+    padding: 1rem;
+}
+
+img {
+    width: 50px;
+}
+
+label, input {
+    font-size: larger;
+}
+
+.thumbnail {
+    position: relative;
+}
+
+.thumbnail .delete-button {
+    position: absolute;
+    top: 0;
+    right: 10px;
+    cursor: pointer;
+}
+
+.loading-spinner {
+    color: white;
+    padding: 0 2rem;
+}
+
+</style>
+
+{% endblock %}
+
+{% block body %}
+
+<div class="wrapper">
+    <div class="title">Nahrání zdrojových souborů</div>
+
+    <div>
+        <label for="file-upload" class="file-upload">📂Vybrat soubory (max 5)</label>
+
+        <input id="file-upload" type="file" name="excel-files" multiple onchange="validateFiles(this)">
+    
+        <input type="submit" class="file-upload hidden" id="submit-button" onclick="uploadFiles()">
+    </div>
+
+    <div class="thumbnail-container">
+    </div>
+    
+    <div class="loading-spinner hidden">
+    </div>
+</div>
+
+<template id="thumbnail-template">
+    <div class="thumbnail" onmouseenter="showDeleteButton(this)" onmouseleave="hideDeleteButton(this)">
+        <img src="/static/reman/xlsx-thumbnail.png" class="excel-icon">
+        <span></span>
+        <div class="delete-button hidden" onclick="removeFile(this)">X</div>
+    </div>
+</template>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+
+var sourceFiles = new FormData()
+
+
+function showDeleteButton(el) {
+    el.querySelector('.delete-button').classList.remove('hidden');
+}
+
+function hideDeleteButton(el) {
+    el.querySelector('.delete-button').classList.add('hidden');
+}
+
+function removeFile(el) {
+    let fileName = el.previousElementSibling.textContent; 
+    el.parentElement.remove();
+    if (document.querySelector('.thumbnail-container').querySelectorAll('div').length == 0) {
+        document.getElementById('submit-button').classList.add('hidden');
+    }
+}
+
+function validateFiles(inputFieldFiles) {
+    document.querySelector('.thumbnail-container').classList.remove('hidden');
+    document.querySelector('.loading-spinner').classList.add('hidden');
+    let files = [...inputFieldFiles.files];
+    if (files.length > 5) {
+        window.alert('Povoleno je nejvíce 5 souborů (headers, operations, components, q3, yfcorer');
+        return false;
+    }
+
+    if (files.length == 0) {
+        return false;
+    }
+    files.forEach(file => {
+        let fileExt = file.name.split('.')[1];
+        let fileName = file.name.split('.')[0];
+        if (fileExt.toLowerCase() == 'xlsx') {
+            sourceFiles.set(fileName, file, file.name);
+            showFileThumbnail(fileName);
+        } else {
+            window.alert(`Soubor ${file.name} nemá správný formát (.xlsx)`);
+            return false;
+        }
+    })
+
+    if (document.querySelector('.thumbnail-container').querySelectorAll('div').length > 0) {
+        document.getElementById('submit-button').classList.remove('hidden');
+    }
+
+    return true;
+}
+
+function showFileThumbnail(fileName) {
+    let template = document.getElementById("thumbnail-template")
+    let clone = template.content.cloneNode(true);
+    clone.querySelector('span').textContent = fileName;
+    let thumbnailContainer = document.querySelector('.thumbnail-container');
+    thumbnailContainer.append(clone.querySelector('div'));
+}
+
+
+async function uploadFiles() {
+    showUploadingIcon();
+    const resp = await fetch(document.location.href, {
+        method: 'POST',
+        body: sourceFiles,
+    });
+
+    let decodedResponse = await resp.json();
+    hideUploadingIcon(decodedResponse);
+}
+
+function showUploadingIcon() {
+    document.querySelector('.thumbnail-container').classList.add('hidden');
+    document.querySelector('.loading-spinner').classList.remove('hidden');
+    document.querySelector('.loading-spinner').textContent = 'Nahrávám soubory, operace může trvat několik minut';
+}
+
+function hideUploadingIcon(responseObject) {
+    sourceFiles = new FormData();
+    document.querySelector('.thumbnail-container').innerHTML = "";
+    document.querySelector('.loading-spinner').textContent = responseObject['response'];
+}
+
+
+</script>
+{% endblock %}

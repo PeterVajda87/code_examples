@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <title></title>
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        {% load static %}
+        <link href="{% static 'partno/styleNEW.css' %}" rel="stylesheet" type="text/css"></link>
+
+        
+        <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    </head>
+    <body>
+    <!-- ======================================== form ====================================== -->
+        <div id="header">
+            <form method="POST" name="header_form">{% csrf_token %}
+                <div id="items_from_form">
+                    <div id="partno_select_div" class="form_item_boxes">
+                        <label for="partno_select" id="label">PartNo</label>
+                        <input type="text" id="partno_sel" list="partno_select" class="form_items" placeholder="Select PartNo" name="partno_sel" required>
+                            <datalist id="partno_select">
+                            </datalist>
+                    </div>
+
+                    <div id="machine_select_div" class="form_item_boxes">
+
+                         <label for="machine_sel" id="label">Machine</label>
+                        <select name="machine_sel" class="form_items" id="machine_sel">
+                        </select>
+                    </div>
+
+
+                    <div id="date_from_div" class="form_item_boxes">
+                        <label for="date_from" id="label">Date From</label>
+                        <input type="date" name="date_from" id="date_from" class="form_items" {% if date_from %} value="{{date_from}}" {% else %} value="2021-07-01" {% endif %} >
+                    </div>
+
+                    <div id="date_to_div" class="form_item_boxes">
+                        <label for="date_to" id="label">Date To</label>
+                        <input type="date" name="date_to" id="date_to" class="form_items" {% if date_to %} value="{{date_to}}" {% else %} value="{{date_today|date:'Y-m-d'}}" {% endif %} >
+                    </div>
+
+                    <div class="form_item_boxes" style="margin-left: 2vw;">
+                        <input type="button" id="form_submit" value="next" onclick="submitForm()">
+                    </div>
+                </div>
+            </form>
+        </div>
+    <!-- ======================================== graphs ====================================== -->
+    <div id="hideWrapp">
+        <div id="main_content">
+            <div id="itemSpec">
+                <div id="nazevMachine">
+                    <div id="nazevMachine1" ></div>
+                    <div id="sap" style="font-size: 3vh; text-transform: uppercase; color: red"></div>
+                </div>
+                <div class="cards" id="avg">AVERAGE <p id="avgp">1</p><div>sec</div></div>
+                <div class="cards" id="med">MEDIAN <p id="medp">1</p><div>sec</div></div>
+                <div class="cards" id="nineth">90%<p id="ninethp">1</p><div>sec</div></div>
+            </div>
+            <div id="AreaChart" class="chart"></div>
+            <div id="Histogram" class="chart"></div>
+            <div id="box-plot" class="chart"></div>
+        </div>
+    </div>
+    <div id="dataNone">Select PartNumber</div>
+    <div id="loader">
+        <div id="loaderSpin"></div>
+        <img id="imgLogo" src="/static/ImgForAll/logoBlack.svg" alt="" id="img">
+    </div>
+
+</body>
+    <!-- ======================================== script ====================================== -->
+    <script type="text/javascript" >
+            google.charts.load('current', {packages:['corechart']});
+
+            date_to.max = new Date().toISOString().split("T")[0];
+            date_from.max = new Date().toISOString().split("T")[0];
+
+            let data_partno = {{data_for_selects | safe}}
+
+            console.log(data_partno)
+
+        function dataNoneText(text){
+            document.getElementById("dataNone").innerText = text;
+        }
+
+            //****** replace all bad chars in partno keys ******
+            replaceKeys(data_partno);
+
+        function replaceKeys(object) {
+            Object.keys(object).forEach(function (key) {
+            var newKey = key.replace(/\s+/g, '');
+            if (object[key] && typeof object[key] === 'object') {
+                replaceKeys(object[key]);
+            }
+            if (key !== newKey) {
+                object[newKey] = object[key];
+                delete object[key];
+            }
+            });
+        }
+
+        //****** create Partno options by key ******
+            data_partno_keys = Object.keys(data_partno);
+
+            data_partno_keys.forEach((element, index)  => {
+                let newOption = document.createElement('option');
+                newOption.textContent = data_partno_keys[index];
+                newOption.value = data_partno_keys[index];
+                document.getElementById("partno_select").append(newOption);
+            });
+                                
+        //****** funcion when submit form, includes validation ******
+        function submitForm() {
+            document.getElementById('dataNone').style.display = "block";
+            document.getElementById("hideWrapp").style.display = "none";
+            let val_partno = document.getElementById("partno_sel").value;
+            let val_machine = document.getElementById("machine_sel").value;
+            let val_date_from = document.getElementById("date_from").value;
+            let val_date_to = document.getElementById("date_to").value;
+            let val_exists = data_partno_keys.includes(val_partno);
+            
+            if(val_exists && val_partno != null && val_partno.length > 0 )
+            {
+                if(val_machine.length > 0 )
+                {
+                    if(val_date_from <= val_date_to){
+                        sendData().then(data => acceptedData(data));
+                    }
+                    else
+                    {   
+                        labelDataNone = "Date From: " + val_date_from + " is greater than " + "Date To: " + val_date_to;
+                        dataNoneText(labelDataNone);
+                    }
+                }
+                else
+                {
+                    labelDataNone = "Machine with name "+ val_machine +" does not exist";
+                    dataNoneText(labelDataNone);
+                }
+            }
+            else
+            {   labelDataNone = "PartNumber with name "+ val_partno +" does not exist";
+                dataNoneText(labelDataNone);
+            }
+        }
+
+        //****** async function to send data ******
+        const url = '{% url "parts" %}'
+
+        async function sendData() {
+            document.getElementById('dataNone').style.display = "none";
+            document.getElementById("hideWrapp").style.display = "none";
+            document.getElementById('loader').style.display = "block";
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    'date_from': document.getElementById('date_from').value,
+                    'date_to': document.getElementById('date_to').value,
+                    'machine_sel': document.getElementById('machine_sel').value,
+                    'partno_sel': document.getElementById('partno_sel').value
+                })
+            })
+
+            return response.json();
+        }
+        var dataDotova = ""
+        //****** what to do when i have data from response ******
+        function acceptedData(data) {
+            console.log(data)
+            console.log("xcjhfhgsdajkgfa")
+            dataDotova = data;
+            document.getElementById('loader').style.display = "none";
+            
+            if(data.line_x || data.line_y){
+                if(data.line_x.length > 10)
+                {
+                    console.log(data.line_x.length)
+                    if(data.line_x.length >= 10000)
+
+                    {
+                        document.getElementById("dataNone").style.display = "block";
+                        dataNoneText("Please change date range, too much data");
+                    }
+                    else
+                    {
+                        document.getElementById("hideWrapp").style.display = "block";
+                        document.getElementById("dataNone").style.display = "none";
+                        machine_name = data.selected_machine.substring(5,data.selected_machine.length-12);
+                        document.getElementById("nazevMachine1").innerText = data.selected_partno + " " + machine_name;
+                        colorTables(data);
+                        drawChart(data);
+                        boxPlotFce(data);
+                    }
+                }
+                else
+                {
+                    document.getElementById("dataNone").style.display = "block";
+                    dataNoneText("Not Enough Data");
+                }
+            }
+            else
+            {
+                document.getElementById("dataNone").style.display = "block";
+                dataNoneText("Record does not exist");
+            }
+        }
+        
+        //****** items in machine select ******
+            document.getElementById('partno_sel').addEventListener('change', DropdownChange);
+
+        function DropdownChange(e){
+            document.getElementById('machine_sel').innerText = null; //reset all option to null
+
+            let machineObj = {{data_for_selects | safe}}; //write to "machineObj" variable "machine" from python, | save is for keepin structure of machine and not converting it to string
+            let value = e.target.value;
+
+            let optionValues = machineObj[value] //get array of options by key in value variable
+            let machineOpt = document.getElementById("machine_sel");
+
+            //loop through optionValues and create new option with value
+            optionValues.forEach((element, index)  => {
+                let newOption = document.createElement('option');
+
+                newOption.setAttribute('name', 'optionid');
+                newOption.setAttribute('id', index);
+
+                newOption.textContent = optionValues[index].substring(5,optionValues[index].length-12);
+                newOption.value = optionValues[index];
+
+                machineOpt.append(newOption);
+            });
+        };
+            
+        //****** color cards ******
+        function colorTables(data){
+
+            avg = Math.floor(data.mean);
+            med = data.median;
+            ninePerc = Math.floor(data.ninth_percentil);
+
+            colors(avg, "avg");
+            colors(med, "med");
+            colors(ninePerc, "nineth");
+
+            function colors(vypocetHodnota, idName){
+                sapTime = data.sap_apo_seconds;
+                document.getElementById(idName + "p").innerHTML = vypocetHodnota;
+                document.getElementById("sap").innerText = "";
+
+                if(sapTime != 0){
+                    if((vypocetHodnota) <= (1.1*sapTime))
+                    {
+                        document.getElementById(idName).style.backgroundColor = "#26CF7D";
+                    }
+                    else if((vypocetHodnota) > (1.1*sapTime) & (vypocetHodnota) < (1.2*sapTime ))
+                    {
+                        document.getElementById(idName).style.backgroundColor = "#FF9B61";
+                    }else
+                    {
+                        document.getElementById(idName).style.backgroundColor = "#EBA2A5";
+                    }
+                }else{
+                    document.getElementById(idName).style.backgroundColor = "#B3B3B3";
+                    document.getElementById("sap").innerText = "norm not defined";
+                }
+            }
+        }
+
+    // ======================================== charts ======================================
+
+        //****** area and histogram charts ******
+        function drawChart(data) {
+            let vals = data.line_y;
+            let medianJS = data.median;
+            let dates = data.line_x;
+            let sap = data.sap_apo_seconds;
+
+            var dataHisto = new google.visualization.DataTable();
+            dataHisto.addColumn('string', 'datetime');
+            dataHisto.addColumn('number', 'rozdil casu');
+            for(let i = 0; i < vals.length; i++){
+                dataHisto.addRow([dates[i], vals[i]]);
+            }
+            var dataArea = new google.visualization.DataTable();
+            dataArea.addColumn('datetime', 'datetime');
+            dataArea.addColumn('number', 'time_diff');
+            dataArea.addColumn('number', 'avg');
+            dataArea.addColumn('number', 'sap_apo_time')
+            for(let i = 0; i < vals.length; i++){
+                dataArea.addRow([new Date(dates[i]), vals[i], medianJS, sap]);
+            }
+
+
+            var options = {
+                title: '',
+                hAxis:{
+                        // title: 'time and date',
+                        format: "YYYY-MM-dd",
+                        slantedText: true,
+                },
+                vAxis:{title: 'processing time (sec)'},
+                legend: 'top',
+                tooltip: {isHtml: true},
+                explorer: {
+                    actions: ['dragToZoom', 'rightClickToReset'],
+                    axis: 'horizontal',
+                    keepInBounds: true,
+                    maxZoomIn: 4.0},
+
+                };
+                var options2 = {
+                title: '',
+                hAxis:{title: 'processing time (sec)'},
+                vAxis:{title: 'number of pieces'},
+                legend: 'none',
+                tooltip: {isHtml: true},
+                explorer: {
+                    actions: ['dragToZoom', 'rightClickToReset'],
+                    axis: 'horizontal',
+                    keepInBounds: true,
+                    maxZoomIn: 4.0},
+
+                };
+
+
+
+            var AreaChart = new google.visualization.AreaChart(document.getElementById('AreaChart'));
+            var Histogram = new google.visualization.Histogram(document.getElementById('Histogram'));
+            AreaChart.draw(dataArea, options);
+            Histogram.draw(dataHisto, options2);
+        }
+
+        //****** resize chart ******
+            window.onresize = doALoadOfStuff;
+
+        function doALoadOfStuff() {
+            acceptedData(dataDotova)
+        }
+
+        //****** boxplot chart ******
+        function boxPlotFce(data)
+        {
+            let vals = data.line_y;
+            let medianJS = data.median;
+            let minimum = data.values_min;
+            let maximum = data.values_max;
+            let firstQuartile = data.first_quartile;
+            let thirdQuartile = data.third_quartile;
+
+            line_y_data = [];
+            line_y_data.push(vals)
+
+            line_y_data[0].push(minimum, maximum, firstQuartile, medianJS, thirdQuartile);
+
+
+            var dataBoxPlot = new google.visualization.DataTable();
+
+            for(let i = 0; i < line_y_data[0].length-5; i++){
+                dataBoxPlot.addColumn('number', line_y_data[0][i].toString() + " second");
+            }
+
+            dataBoxPlot.addColumn({id:'maxi', type:'number', role:'interval'});
+            dataBoxPlot.addColumn({id:'mini', type:'number', role:'interval'});
+            dataBoxPlot.addColumn({id:'PrvniQuartile', type:'number', role:'interval'});
+            dataBoxPlot.addColumn({id:'medianovy', type:'number', role:'interval'});
+            dataBoxPlot.addColumn({id:'tretiQuartile', type:'number', role:'interval'});
+
+
+
+            for(let i = 0; i < line_y_data.length; i++){
+                dataBoxPlot.addRow(line_y_data[i]);
+            }
+
+            var boxPlotOption = {
+                explorer: {
+                    actions: ['dragToZoom', 'rightClickToReset'],
+                    axis: 'vertical',
+                    keepInBounds: true,
+                    maxZoomIn: 4.0
+                },
+
+                title:'',
+                tooltip: {isHtml: true},
+                legend: {position: 'none'},
+                hAxis: {
+                    textPosition: 'none',
+                    gridlines: {color: '#fff'}
+                },
+                lineWidth: 0,
+                series: [{'color': '#D3362D'}],
+                intervals: {
+                    barWidth: 1,
+                    boxWidth: 1,
+                    lineWidth: 2,
+                    style: 'boxes'
+                },
+                    interval: {
+                        maxi: {
+                            style: 'bars',
+                            fillOpacity: 1,
+                            color: '#777'
+                        },
+                        mini: {
+                            style: 'bars',
+                        fillOpacity: 1,
+                        color: '#777'
+                    }
+                }
+            };
+            var boxPlot = new google.visualization.LineChart(document.getElementById('box-plot'));
+            boxPlot.draw(dataBoxPlot, boxPlotOption);
+        }
+    </script>
+</html>

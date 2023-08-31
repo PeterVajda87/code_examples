@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/static/carpool/style.css">
+    <link href='https://fonts.googleapis.com/css?family=Roboto' rel='stylesheet'>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <title>galerie výpůjček</title>
+    <style>
+        
+        </style>
+</head>
+<body>
+    <header>
+        <span>Galerie Výpůjček</span>
+        <div id="date-select-wrapp">
+            <div>
+                <input type="date" id="date-from" name="date-from"> 
+                <label for="date-from" id="date-from-label">datum od:</label>
+            </div>
+            <div>
+                <input type="date" id="date-to" name="date-to"> 
+                <label for="date-to" id="date-to-label">datum do:</label>             
+            </div>
+            <div>
+                <input type="submit" id="submit" value="submit">             
+            </div>
+        </div>
+    </header>
+    <main id="details">
+        <details>
+            <summary>Simon Zanta 07-12-2022</summary>
+            <p> 
+                <span class="img-wrapp"><img src="/static/carpool/xd.jpg" class="image" onclick="showBigImg(this)"></span>
+                <span class="img-wrapp"><img src="/static/carpool/xdd.jpg" class="image" onclick="showBigImg(this)"></span>
+                <span class="img-wrapp"><img src="/static/carpool/xddd.jpg" class="image" onclick="showBigImg(this)"></span>
+                <span class="img-wrapp"><img src="/static/carpool/xdddd.jpg" class="image" onclick="showBigImg(this)"></span>
+                <span class="img-wrapp"><img src="/static/carpool/xddddd.jpg" class="image" onclick="showBigImg(this)"></span>
+                <span class="img-wrapp"><img src="/static/carpool/xdddddd.jpg" class="image" onclick="showBigImg(this)"></span>
+                <span class="img-wrapp"><img src="/static/carpool/colour-wheel.png" class="image" onclick="showBigImg(this)"></span>
+            </p>
+        </details>
+        <details>
+            <summary>dummy</summary>
+            <p><img src="/static/carpool/colour-wheel.png" class="image" onclick="showBigImg(this)"></p>
+        </details>
+        <details>
+            <summary>dummy</summary>
+            <p><img src="/static/carpool/colour-wheel.png" class="image" onclick="showBigImg(this)"></p>
+        </details>
+        <details>
+            <summary>dummy</summary>
+            <p><img src="/static/carpool/colour-wheel.png" class="image" onclick="showBigImg(this)"></p>
+        </details>
+        <details>
+            <summary>dummy</summary>
+            <p><img src="/static/carpool/colour-wheel.png" class="image" onclick="showBigImg(this)"></p>
+        </details>
+        <details>
+            <summary>dummy</summary>
+            <p><img src="/static/carpool/colour-wheel.png" class="image" onclick="showBigImg(this)"></p>
+        </details>
+        <details>
+            <summary>dummy</summary>
+            <p><img src="/static/carpool/colour-wheel.png" class="image" onclick="showBigImg(this)"></p>
+        </details>
+        <details>
+            <summary>dummy</summary>
+            <p><img src="/static/carpool/colour-wheel.png" class="image" onclick="showBigImg(this)"></p>
+        </details>
+        <details>
+            <summary>dummy</summary>
+            <p><img src="/static/carpool/colour-wheel.png" class="image" onclick="showBigImg(this)"></p>
+        </details>
+        <details>
+            <summary>dummy</summary>
+            <p><img src="/static/carpool/colour-wheel.png" class="image" onclick="showBigImg(this)"></p>
+        </details>
+        <details>
+            <summary>dummy</summary>
+            <p><img src="/static/carpool/colour-wheel.png" class="image" onclick="showBigImg(this)"></p>
+        </details>
+    </main>
+    <div id="big-pic-Wrapp" class="wrapp">
+        <span class="material-symbols-outlined" id="close" onclick="hideBigImg()">close</span>
+        <div id="big-img-flex" class="flex"><img src="" alt="" id="big-Img" class="img"></div>
+    </div>
+</body>
+<script>
+getClassByRatio()
+function getClassByRatio(){
+    images = document.getElementsByClassName('image')
+    for(let i = 0; i < images.length; i++){
+        ratioWhole =  images[i].offsetWidth / images[i].offsetHeight
+        ratio = ratioWhole.toFixed(1)
+
+        if(ratio < 1){
+            images[i].classList.add("imageHigh")
+        }else if(ratio == 1){
+            images[i].classList.add("imageSameSides")
+        }else{
+            images[i].classList.add("imageWide")
+        }
+    }
+}
+
+
+modal = document.getElementById("big-pic-Wrapp")
+
+function showBigImg(img){
+    document.getElementById("big-pic-Wrapp").style.display = "block"
+    src = img.src
+    bigImg = document.getElementById("big-Img")
+    bigImg.src = src
+
+    let close = document.getElementById("close")
+    closeHeight = close.offsetHeight
+    bigImgSize = bigImg.getBoundingClientRect()
+    close.style.top = `${bigImgSize.top-closeHeight}px`
+    close.style.left = `${bigImgSize.right}px`
+    
+    TopScroll = window.pageYOffset || document.documentElement.scrollTop;
+    LeftScroll = window.pageXOffset || document.documentElement.scrollLeft,
+
+    window.onscroll = function() {
+    window.scrollTo(LeftScroll, TopScroll);
+    };
+}
+
+function hideBigImg(){
+    modal.style.display = "none";
+}
+
+window.onclick = function(e) {
+    if(e.srcElement.className == "flex"){
+        hideBigImg()   
+        window.onscroll = function() {};
+    }
+}
+
+getAllDates("date-from")
+getAllDates("date-to")
+
+
+function getAllDates(dateType){
+    const date = new Date();
+    dates = []
+
+    let year = date.getFullYear();
+    let minyear = date.getFullYear() - 1;
+    
+    let month = date.getMonth() + 1;
+
+    let day = 0;
+    let maxDay = 0;
+    maxDayIncrementation = 4
+
+    if(date.getDate() < 10){
+        day = "0" + date.getDate()
+    }else{
+        day =  date.getDate();
+        
+    }
+
+    if(date.getDate() + maxDayIncrementation < 10){
+        maxDay = "0" + (date.getDate() + maxDayIncrementation)
+    }else{
+        maxDay =  date.getDate() + maxDayIncrementation;
+    }
+
+    dateBasic = `${year}-${month}-${day}`
+    dateMin = `${minyear}-${month}-${day}`
+    dateMax = `${year}-${month}-${maxDay}`
+
+    dates.push(dateBasic)
+    dates.push(dateMin) 
+    dates.push(dateMax)
+    
+    console.log(dates)
+
+    document.getElementById(`${dateType}`).value = dates[0]
+    document.getElementById(`${dateType}`).min = dates[1]
+    document.getElementById(`${dateType}`).max = dates[2]
+}
+
+</script>
+</html>

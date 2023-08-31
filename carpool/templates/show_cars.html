@@ -1,0 +1,589 @@
+
+{% extends 'base.html' %}
+
+{% block head %}
+
+{% load carpool_tags %}
+
+{% load static %}
+
+{% endblock %}
+
+{% block body %}
+
+<style>
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    color: #00457e;
+}
+
+.carpark-wrapper {
+    display: flex;
+    flex-flow: column;
+    width: 80vw;
+    margin: 0 auto;
+}
+
+.carpool-breadcrumb {
+    margin: 1.5vh 0;
+    margin-left: 10%;
+}
+
+.car-boxes-container {
+    display: flex;
+    flex-flow: row;
+    flex-wrap: wrap;
+}
+
+.car-box {
+    display: flex;
+    flex-flow: column;
+    width: 15vw;
+    height: 15vw;
+    place-content: center;
+    align-items: center;
+    cursor: pointer;
+    position: absolute;
+    transition: transform .5s ease-in-out;
+}
+
+.car-box:hover {
+    transform: scale(1.5);
+}
+
+
+img {
+    max-width: 100%;
+}
+
+.license-plate {
+    font-size: 2.5vh;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.car-details-wrapper {
+    margin: 0 10vw;
+    width: 80vw;
+    height: 92vh;
+    display: grid;
+    grid-template-columns: 22.5vw repeat(3, 18.167vw);
+    grid-auto-rows: 50%;
+    grid-column-gap: 1vw;
+    grid-row-gap: 3vh;
+}
+
+.car-details-wrapper > div:first-of-type {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.car-details-wrapper > div:nth-of-type(2) {
+    grid-column: 2/3;
+    background-color: rgba(0,69,127,0.03);
+}
+
+.car-details-wrapper > div:nth-of-type(3) {
+    grid-column: 3/4;
+}
+
+.car-details-wrapper > div:nth-of-type(4) {
+    grid-column: 4/5;
+    background-color: rgba(0,69,127,0.03);
+}
+
+.car-details-wrapper > div:nth-of-type(5),
+.car-details-wrapper > div:nth-of-type(6) {
+grid-column: span 2;
+}
+
+.car-details-wrapper > div {
+    display: flex;
+    flex-flow: column;
+    row-gap: 2vh;
+    padding: 2vh 2vw;
+    align-items: flex-start;
+}
+
+input {
+    padding: 0.25rem 0.5rem;
+    border: 0;
+    border-bottom: 1px solid #00457e;
+    outline: 0;
+    font-size: 2vh;
+    display: block;
+    text-align: right;
+}
+
+label {
+    text-transform: uppercase;
+    font-size: 2vh;
+    margin-bottom: 0.25rem;
+    display: block;
+    font-weight: bold;
+}
+
+#delete-car {
+    display: flex;
+    flex-flow: column;
+    justify-content: center;
+    align-items: center;
+    background-color: red;
+    color: white;
+    font-size: 4vh;
+    cursor: pointer;
+}
+
+table {
+    width: 100%;
+}
+
+table th:first-of-type {
+    text-align: left;
+}
+
+table tr > td:nth-of-type(2),
+table tr > td:nth-of-type(3),
+table tr > td:nth-of-type(4),
+table tr > td:nth-of-type(5) {
+    text-align: center;
+    align-items: center;
+    justify-content: center;
+}
+
+
+</style>
+
+<div class="carpool-breadcrumb"><a href="{% url 'carpool_home' %}">Domů</a> > <a href="{% url 'show_cars' %}">Správa parku</a></div>
+
+<div class="carpark-wrapper">
+    <div class="car-boxes-container">
+
+        {% for car in pool_cars %}
+
+        <div class="car-box" style="left: {{forloop.counter0|position_left}}; top: {{forloop.counter0|position_top}}" data-lp="{{car.car_license_plate}}" onclick="showDetails(this)">
+            <img src="/media/carpool/car-generic.png">
+            <div class="license-plate">{{car.car_license_plate|to_license_plate}}</div>
+            <div class="qr-code hidden" data-lp="{{car.car_license_plate}}"><img src="/media/qrcodes/{{car.car_license_plate}}.png" style="max-width: 8vw"></div>
+        </div>
+
+        {% endfor %}
+
+        <div id="new-car" class="car-box" data-lp="{{car.car_license_plate}}" style="left: {{pool_cars|length|position_left}}; top: {{pool_cars|length|position_top}}" onclick="addCar(this)">
+            <img src="/media/carpool/car-add.png">
+            <div class="license-plate">Přidat auto</div>
+        </div>
+
+    </div>
+</div>
+
+<div class="car-details-wrapper hidden">
+
+<div class="car-details" id="car-gallery"></div>
+
+<div class="car-details">
+    <div id="car_manufacturer">
+        <label>Výrobce</label>
+    </div>
+    
+    <div id="car_make">
+        <label>Model</label>
+    </div>
+    
+    <div id="technical_certificate">
+        <label># technický průkaz</label>
+    </div>
+
+    <div id="shell_number">
+        <label>Shell číslo</label>
+    </div>
+    
+    <div id="pin">
+        <label>Shell PIN</label>
+    </div>
+</div>
+
+<div class="car-details">
+    <div id="next_service_kms">
+        <label>Příští servis (km)</label>
+    </div>
+    
+    <div id="next_service_date">
+        <label>Příští servis (den)</label>
+    </div>
+    
+    <div id="kms_limit">
+        <label>Povolený nájezd</label>
+    </div>
+    
+    <div id="car_mileage">
+        <label>Stav tachometru</label>
+    </div>
+    
+    <div id="active">
+        <label>Aktivní</label>
+    </div>
+</div>
+
+<div class="car-details" id="delete-car">
+    Odstranit auto
+</div>
+
+<div class="car-details" id="car-history-reservations">
+    <label>Rezervace</label>
+</div>
+
+<div class="car-details" id="car-history-carloans">
+    <label>Zápujčky</label>
+</div>
+    
+</div>
+
+<script>
+
+    document.getElementById('delete-car').addEventListener('click', (e) => deleteCar(e.target))
+
+    function addCar(car) {
+        car.style = "transition: none";
+        car.style = "transition: all 1s ease-in-out; top: 3vw; left: 10vw; transform: scale(1.5); transform-origin: 0 0";
+        car.dataset.active = "true";
+
+        document.querySelectorAll(`[data-lp]:not([data-lp="${car.dataset.lp}"]`).forEach(c => {
+            c.style.transitionDuration = "1s";
+            c.style.opacity = "0";
+            c.addEventListener('transitionend', (e) => {
+                e.target.remove();
+            });
+        });
+
+        car.addEventListener('transitionend', (e) => {
+            if (e.propertyName == 'transform-origin') {
+                showAddNewCar()
+            }
+        })
+    }
+
+    function showAddNewCar() {
+        document.querySelector('.carpark-wrapper').style = 'pointer-events: none';
+        document.querySelector('.car-details-wrapper').classList.remove('hidden');
+        let containers = document.querySelectorAll('.car-details');
+        containers.forEach(container => {
+            let divs = container.querySelectorAll('div');
+            if (divs) {
+                divs.forEach(div => {
+                    let input = document.createElement('input');
+                    input.type = 'text';
+                    if (div.id == 'active') {
+                        input.type = 'checkbox';
+                        input.checked = true;
+                    }
+                    if (div.id == 'next_service_date') {
+                        input.type = 'date';
+                        div.style.width = '100%';
+                        input.style.width = '100%';
+                    }
+                    div.append(input);
+                })
+            }
+        })
+        document.getElementById('new-car').querySelector('.license-plate').innerHTML = '<input type="text" id="new-car-license-plate" style="text-transform: uppercase">';
+        document.getElementById('new-car').querySelector('.license-plate').style.pointerEvents = 'all';
+        document.getElementById('delete-car').style.backgroundColor = 'lightgreen';
+        document.getElementById('delete-car').textContent = 'Přidat auto';
+
+    }
+
+    function showDetails(car) {
+        car.style = "transition: none";
+        car.style = "transition: all 1s ease-in-out; top: 3vw; left: 10vw; transform: scale(1.5); transform-origin: 0 0";
+        car.dataset.active = "true";
+
+        document.querySelectorAll(`[data-lp]:not([data-lp="${car.dataset.lp}"]`).forEach(c => {
+            c.style.transitionDuration = "1s";
+            c.style.opacity = "0";
+            c.addEventListener('transitionend', (e) => {
+                e.target.remove();
+            });
+        });
+
+        car.addEventListener('transitionend', (e) => {
+            if (e.propertyName == 'transform-origin') {
+                getCarData(car).then(data => showCarData(data));
+                getCarHistory(car).then(data => showCarHistory(data));
+            }
+        })
+    }
+
+    async function getCarData(car) {
+        let url = "{% url 'get_car_data' %}"
+        const resp = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({'license-plate': car.dataset.lp}),
+        });
+
+        return resp.json();
+    }
+
+    async function getCarHistory(car) {
+        let url ="{% url 'get_car_history' %}"
+        const resp = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 'license-plate': car.dataset.lp }),
+        })
+
+        return resp.json();
+    }
+
+    function showCarData(data) {
+        document.querySelectorAll('.car-details').forEach(div => { div.dataset.lp = data.car_license_plate });
+        document.querySelector('.car-details-wrapper').classList.remove('hidden');
+        document.querySelector('.carpark-wrapper').style = 'pointer-events: none';
+        document.querySelector(`[class*="qr-code"][data-lp="${data.car_license_plate}"]`).classList.remove('hidden');
+        document.querySelector('[data-active="true"]').style.display = "none";
+        document.getElementById("car-gallery").innerHTML = document.querySelector('[data-active="true"]').innerHTML;
+
+        for (const [key, value] of Object.entries(data)) {
+            if (document.getElementById(key)) {
+                let container = document.getElementById(key);
+                let input = document.createElement('input');
+                input.name = key
+                if (input.name == 'active') {
+                    input.type = "checkbox";
+                    input.checked = value;
+                } else {
+                    input.value = value;
+                }
+                if (container.id == 'next_service_date') {
+                    input.type = 'date';
+                    container.style.width = "100%";
+                    input.style.width = "100%";
+                }
+                container.append(input);
+                input.addEventListener('change', (e) => {
+                    let licensePlate = e.target.parentElement.parentElement.dataset.lp;
+                    let field = e.target.name;
+                    let value = e.target.value;
+                    input.type == 'checkbox' ? updateValue(licensePlate, field, e.target.checked) : updateValue(licensePlate, field, value)
+                })
+            }
+        }
+    }
+
+    function showCarHistory(data) {
+        let container_reservations = document.getElementById('car-history-reservations');
+        let container_carloans = document.getElementById('car-history-carloans');
+        
+        let carloans = data['carloans'];
+        let carloans_table = document.createElement('table');
+
+        let carloans_header = document.createElement('thead');
+        carloans_header.innerHTML = `<tr>
+            <th>Cíl cesty</th>
+            <th>Začátek</th>
+            <th>Konec</th>
+            <th>Uživatel</th>
+            <th>Využito</th>
+        </tr>`;
+
+        let carloans_body = document.createElement('tbody')
+        carloans_table.append(carloans_body);
+        carloans_table.append(carloans_header);
+
+        for (const [key, value] of Object.entries(carloans)) {
+            console.log(value)
+            let row = carloans_body.insertRow(-1);
+            row.dataset.carloanId = value['carloan_id']
+
+            console.log(value['carloan_id'])
+
+            let cell_destination = row.insertCell(0);
+            cell_destination.textContent = value['destination'];
+
+            let cell_beginning = row.insertCell(1);
+            try {
+                cell_beginning.innerHTML = value['start'].replace("T", " ").slice(0, 16).replace(" ", "<br />");
+            } catch {
+                cell_beginning.innerHTML = "";
+            }
+
+            let cell_finish = row.insertCell(2);
+            try {
+                cell_finish.innerHTML = value['end'].replace("T", " ").slice(0, 16).replace(" ", "<br />");
+            } catch {
+                cell_finish.innerHTML = "";
+            }
+
+            let cell_user = row.insertCell(3);
+            cell_user.textContent = `${value['user']['last_name']} ${value['user']['first_name']}`;
+
+            let cell_realised = row.insertCell(4);
+            let checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.disabled = true;
+            checkbox.checked = value['closed'];
+            checkbox.style.display = "inline";
+            cell_realised.append(checkbox);
+
+            let cell_vypujceno = row.insertCell(5);
+            let vypujceno_div = document.createElement('a')
+            vypujceno_div.innerHTML = 'vypujceno' 
+            vypujceno_div.href = `display_loaned_car?id=${value['carloan_id']}`
+            
+            cell_vypujceno.append(vypujceno_div)
+
+            let cell_vraceno = row.insertCell(6);
+            let vraceno_div = document.createElement('a')
+            vraceno_div.innerHTML = 'vraceno' 
+            vraceno_div.href = 'display_returned_car' 
+            
+            cell_vraceno.append(vraceno_div)
+        }
+        
+        let reservations = data['reservations'];
+        let reservations_table = document.createElement('table');
+        
+        reservations_table.style.width = "100%";
+        let reservations_header = document.createElement('thead');
+        reservations_header.innerHTML = `<tr>
+            <th>Cíl cesty</th>
+            <th>Začátek</th>
+            <th>Konec</th>
+            <th>Uživatel</th>
+            <th>Využito</th>
+            </tr>`;
+
+        let reservations_body = document.createElement('tbody')
+        reservations_table.append(reservations_body);
+
+        reservations_table.append(reservations_header);
+        for (const [key, value] of Object.entries(reservations)) {
+            let row = reservations_body.insertRow(-1);
+            
+            let cell_destination = row.insertCell(0);
+            cell_destination.textContent = value['destination'];
+            
+            let cell_beginning = row.insertCell(1);
+            cell_beginning.innerHTML = value['start'].replace("T", " ").slice(0, 16).replace(" ", "<br />");
+            
+            let cell_finish = row.insertCell(2);
+            cell_finish.innerHTML = value['end'].replace("T", " ").slice(0, 16).replace(" ", "<br />");
+            
+            let cell_user = row.insertCell(3);
+            cell_user.textContent = `${value['user']['last_name']} ${value['user']['first_name']}`;
+            
+            let cell_realised = row.insertCell(4);
+            let checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.disabled = true;
+            checkbox.checked = value['used'];
+            checkbox.style.display = "inline";
+            cell_realised.append(checkbox);
+        }
+
+
+        container_reservations.append(reservations_table);
+        container_carloans.append(carloans_table);
+    }
+
+    function deleteCar(car) {
+        if (car.textContent == 'Přidat auto') { // tohle je hrozna prasarna, ale cas tlaci
+             addCarInDatabase().then(() => { window.location.reload() })
+        } else {
+            if (confirm("Chcete určitě odstranit auto?") == true) {
+                deleteCarInDatabase(car.dataset.lp).then(() => { window.location.reload() })
+            } else {
+                return false;
+            }
+        }
+    }
+
+    async function addCarInDatabase() {
+        var failing = false;
+        let car_manufacturer = document.getElementById('car_manufacturer').querySelector('input').value;
+        let car_make = document.getElementById('car_make').querySelector('input').value;
+        let technical_certificate = document.getElementById('technical_certificate').querySelector('input').value;
+        let shell_number = document.getElementById('shell_number').querySelector('input').value;
+        let pin = document.getElementById('pin').querySelector('input').value;
+        let next_service_kms = document.getElementById('next_service_kms').querySelector('input').value;
+        let next_service_date = document.getElementById('next_service_date').querySelector('input').value;
+        let kms_limit = document.getElementById('kms_limit').querySelector('input').value;
+        let active = document.getElementById('active').querySelector('input').value;
+        let license_plate = document.getElementById('new-car-license-plate').value;
+        let car_mileage = document.getElementById('car_mileage').querySelector('input').value;
+
+        let required_fields = ['next_service_kms', 'next_service_date', 'new-car', 'kms_limit', 'car_mileage'];
+
+        required_fields.forEach(field => {
+            if (!(document.getElementById(field).querySelector('input').value)) {
+                failing = true;
+            }
+        })
+
+        if (failing == true) {
+            window.alert('Vyplňte všechna povinná pole: SPZ, Příští servis (km), Příští servis (den), Povolený nájezd');
+            throw 'Error'
+        }
+
+        const resp = await fetch(url = "{% url 'add_car' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+                'car_manufacturer': car_manufacturer,
+                'car_make': car_make,
+                'technical_certificate': technical_certificate,
+                'shell_number': shell_number,
+                'pin': pin,
+                'next_service_kms': next_service_kms,
+                'next_service_date': next_service_date,
+                'kms_limit': kms_limit,
+                'active': active,
+                'license_plate': license_plate,
+        })
+        })
+
+        return resp.json();
+    }
+
+    async function deleteCarInDatabase(licensePlate) {
+        let url = "{% url 'delete_car' %}"
+        const resp = await fetch(url = url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 'license-plate': licensePlate }),
+        });
+
+        return resp.json();
+            
+    }
+
+    async function updateValue(licensePlate, field, value) {
+        let url = "{% url 'edit_car' %}"
+        const resp = await fetch(url = url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 'field': field, 'value': value, 'license-plate': licensePlate }),
+        });
+
+        return resp.json();
+    }
+</script>
+
+{% endblock %}

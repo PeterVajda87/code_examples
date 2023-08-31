@@ -1,0 +1,35 @@
+{% extends 'fp09/ps_base.html' %}
+
+{% block title %}
+<title>Problem Solving FP09</title>
+{% endblock %}
+{% block body %}
+<body>
+    <img src="/media/ps_fp09_imgs/line_layout.avif" style="width: 100%">
+    <table>
+        <thead>
+            <tr>
+                <th>
+                    Alarm
+                </th>
+                <th>
+                    Trvání
+                </th>
+                <th>
+                    Výskyt
+                </th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for alarm in alarms %}
+            <tr>
+                <td>{{alarm.alarmcode}}</td>
+                <td>{{alarm.alarm_duration}}</td>
+                <td>{{alarm.alarm_count}}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+{% endblock %}

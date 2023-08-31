@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block head %}
+
+{% load extras %}
+
+{% load static %}
+<style>
+    * {
+        border: 0;
+        margin: 0;
+        box-sizing: border-box
+    }
+
+    @font-face {
+        font-family: 'Questrial';
+        src: url('/media/fonts/Questrial-Regular.ttf');
+    }
+
+    .menu-wrapper {
+        display: flex;
+        flex-flow: row;
+        flex-wrap: wrap;
+        width: 80vw;
+        margin: 10vh auto;
+        max-height: 80vh;
+        justify-content: space-between;
+        font-family: 'Questrial';
+        column-gap: 3rem;
+    }
+
+    .menu-item {
+        flex-grow: 1;
+        width: 20%;
+        height: 33vh;
+        border: 1px solid lightblue;
+        display: flex;
+        flex-flow: column;
+        justify-content: center;
+        align-items: center;
+        font-size: larger;
+        cursor: pointer;
+    }
+
+    .menu-item:hover {
+        font-size: x-large;
+    }
+</style>
+{% endblock %}
+
+{% block body %}
+
+
+<div class="menu-wrapper">
+
+    <div class="menu-item" onclick="location.href='{% url 'form_injury' %}'">Nový úraz</div>
+    <div class="menu-item" onclick="location.href='{% url 'form_nearmiss' %}'">Nová skoronehoda</div>
+    <div class="menu-item" onclick="location.href='{% url 'accidents_overview' %}'">Přehled úrazů a opatření</div>
+
+    {% if not user.is_authenticated %}
+    <div class="menu-item" onclick="location.href='{% url 'login' %}?next=/accidents'">Přihlášení</div>
+    {% endif %}
+
+    {% if user.is_authenticated %}
+    <div class="menu-item" onclick="location.href='{% url 'logout' %}?next=/accidents'">Odhlášení</div>
+    {% endif %}
+</div>
+
+<script>
+
+</script>
+
+{% endblock %}

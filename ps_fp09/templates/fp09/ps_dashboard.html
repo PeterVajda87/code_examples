@@ -1,0 +1,554 @@
+{% extends 'fp09/ps_base.html' %}
+
+{% block title %}
+<title>Problem Solving FP09</title>
+{% endblock %}
+
+{% block head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.8.0/chart.min.js" integrity="sha512-sW/w8s4RWTdFFSduOTGtk4isV1+190E/GghVffMA9XczdJ2MDzSzLEubKAs5h0wzgSJOQTRYyaz73L3d6RtJSg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-trendline"></script>
+
+<style>
+    
+    /* --- General --- */
+    
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: 'Noto Sans';
+        color: var(--kb-color);
+    }
+    
+    :root {
+        --kb-color: rgb(0 69 127);
+        --kb-transparent: rgba(0 69 127 / 0.5)
+    }
+
+    @font-face {
+        font-family: 'Noto Sans';
+        src: url('/media/fonts/NotoSans-Regular.ttf');
+    }
+
+    /* --- Utility classes --- */
+
+    .flex-row {
+        display: flex;
+        flex-flow: row wrap;
+    }
+
+    .flex-column {
+        display: flex;
+        flex-flow: column;
+    }
+    
+    .centered-vertically {
+        display: flex;
+        align-items: center;
+    }
+
+    .centered-horizontally {
+        display: flex;
+        justify-content: center;
+    }
+    
+    .gap-column-narrow {
+        column-gap: 0.25vw;
+    }
+
+    .gap-column-wide {
+        column-gap: 0.5vw;
+    }
+
+    .gap-row-narrow {
+        row-gap: 0.25vw;
+    }
+
+    .radius {
+        border-radius: 0.5%;
+    }
+
+    .absolute {
+        position: absolute;
+        top: 0;
+        left: 0;
+        pointer-events: none;
+    }
+
+    .hidden {
+        display: none !important;
+    }
+
+    .top {
+        justify-content: space-between;
+    }
+
+    .pointer {
+        cursor: pointer;
+    }
+
+    .selected {
+        border: 1px solid var(--kb-color);
+    }
+
+    /* --- Layout classes --- */ 
+
+    .wrapper {
+        /* height: 100vh; */
+        width: 90vw;
+        margin: 0 auto;
+    }
+    
+    .breadcrumbs {
+        height: 5vh;
+        min-height: 2rem;
+    }
+
+    .main {
+        /* height: 96vh; */
+        background-color: var(--kb-color);
+        color: white;
+        padding: 0.5vh 0.25vw;
+    }
+
+    .chart-container {
+        position: relative;
+        width: calc(33% - 0.5vh);
+        height: 46vh;
+        /* height: calc(50% - 0.5vh); */
+        flex-grow: 1;
+        background-color: white;
+    }
+    
+    .chart {
+        width: 100%;
+        height: 100%;
+        padding: 0.25vh 0.25vw;
+    }
+    
+    .chart-settings {
+        padding: 5vh;
+        min-width: 50%;
+        width: 100%;
+        max-width: 50vw;
+        max-height: 100%;
+    }
+
+    .chart-settings img {
+        height: 5vh;
+        width: 100%;
+    }
+
+    .utilities {
+        width: 100%;
+        height: 8%;
+        background-color: var(--kb-transparent);
+        padding: 0 1vw;
+    }
+
+    .utility {
+        max-height: 2vh;
+        filter: invert(1);
+        pointer-events: all;
+    }
+
+    textarea, input {
+        padding: 0.33vh 0.5vw;
+        width: 100%;
+        resize: vertical;
+    }
+
+    input[type="submit"] {
+        padding: 1vh 1vw;
+        width: fit-content;
+    }
+
+    .chart-icon-container {
+        box-sizing: content-box;
+        padding: 0.33vw;
+    }
+
+    .chart-icon-container img {
+        pointer-events: none;
+    }
+
+    /* --- Loader --- */
+
+    .lds-circle {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100%;
+    }
+
+    .lds-circle > div {
+        display: inline-block;
+        width: 2vw;
+        height: 2vw;
+        border-radius: 50%;
+        background: var(--kb-color);
+        animation: lds-circle 2.4s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+    }
+
+    @keyframes lds-circle {
+        0%, 100% {
+            animation-timing-function: cubic-bezier(0.5, 0, 1, 0.5);
+        }
+        0% {
+            transform: rotateY(0deg);
+        }
+        50% {
+            transform: rotateY(1800deg);
+            animation-timing-function: cubic-bezier(0, 0.5, 0.5, 1);
+        }
+        100% {
+            transform: rotateY(3600deg);
+        }
+    }
+
+    @media (max-width: 800px){
+        .chart-container {
+            width: calc(100% - 0.5vh);
+            height: calc(50% - 0.5vh);
+        }
+    }
+</style>
+
+{% endblock %}
+{% block body %}
+
+<div class="wrapper flex-column">
+    <section name="top" class="flex-row top">
+        <div class="breadcrumbs centered-vertically flex-row gap-column-narrow">
+            <a href="{% url 'ps_fp09:index' %}">Domů ></a>Dashboard
+        </div>
+
+        <div class="centered-vertically">{{dashboard.name}}<span class="pointer">&#9660;</span></div>
+        <div class="centered-vertically pointer" id="add-chart" onclick="createChart()">Nový graf</div>
+        <div class="centered-vertically pointer" id="add-variable" onclick="createChart()">Proměnné</div>
+
+        {% if user.is_authenticated %}
+        <div class="login centered-vertically gap-column-narrow flex-row">{{user}}<a href="{% url 'logout' %}?next={% url 'ps_fp09:dashboard' %}">Odhlásit</a></div>
+        {% else %}
+        <div class="login centered-vertically pointer"><a href="{% url 'login' %}?next={% url 'ps_fp09:dashboard' %}"><span>Přihlášení</span></a></div>
+        {% endif %}
+
+    </section>
+
+    <div class="main flex-row gap-column-narrow gap-row-narrow radius" id="main">
+
+        {% for chart in charts %}
+
+        <div class="chart-container radius" data-chart="{{chart.id}}" data-chart-name="{{chart.name}}" data-loaded="false" onmouseenter="showUtilities(this)" onmouseleave="hideUtilities(this)">
+            <div class="utilities absolute hidden centered-vertically flex-row gap-column-wide" data-chart="{{chart.id}}">
+                <img src="/media/settings-icon.png" class="utility pointer settings" data-chart="{{chart.id}}" data-state="settings" onclick="switchStateHandler(this)">
+                <img src="/media/enlarge-icon.png" class="utility pointer enlarge" data-chart="{{chart.id}}" onclick="extendChart(this)">
+                <img src="/media/excel-icon.png" class="utility pointer excel" data-chart="{{chart.id}}" onclick="exportXLSX(this)">
+                <img src="/media/trash-icon.png" class="utility pointer trash" style="margin-left: auto;" data-chart="{{chart.id}}" onclick="deleteChart(this)">
+            </div>
+
+            <div class="chart" data-chart="{{chart.id}}">
+                <canvas id="{{chart.id}}" width="16" height="9"></canvas>
+            </div>
+            <div class="chart-settings flex-column gap-row-narrow hidden" data-chart="{{chart.id}}">
+
+                <div class="flex-column gap-row-narrow">
+                    <label>Název</label>
+                    <input type="text" name="name" data-chart="{{chart.id}}" value="{{chart.name}}">
+                </div>
+
+                <div class="flex-column gap-row-narrow">
+                    <label>SQL query</label>
+                    <textarea placeholder="SELECT ... " name="query" data-chart="{{chart.id}}">{{chart.query}}</textarea>
+                </div>
+
+                <div class="flex-column gap-row-narrow">
+                    <label>Typ grafu</label>
+                    <div class="flex-row gap-column-wide">
+                        {% for chart_type in chart_types %}
+                        <div data-purpose="chart-type-icon" data-chart="{{chart.id}}" onclick="selectChartType(this)" data-chart-type="{{chart_type.type}}" class="chart-icon-container pointer {% if chart.type == chart_type %} selected {% endif %}"><img src="{{chart_type.icon_path}}"></div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="submit-settings" onclick="(() => saveSettings(this).then(resp => updateChart(...resp)))()" data-chart="{{chart.id}}">
+                    <input class="pointer" type="submit" data-submit="settings" value="Uložit">
+                </div>
+            </div>
+        </div>
+
+        {% endfor %}
+    </div>
+</div>
+
+<template id="chart-template">
+<div class="chart-container radius" data-chart="0" data-chart-name="" data-loaded="true" onmouseenter="showUtilities(this)" onmouseleave="hideUtilities(this)">
+    <div class="utilities absolute hidden centered-vertically flex-row gap-column-wide" data-chart="0">
+        <img src="/media/settings-icon.png" class="utility pointer settings" data-chart="0" data-state="settings" onclick="switchStateHandler(this)">
+        <img src="/media/enlarge-icon.png" class="utility pointer enlarge" data-chart="0">
+        <img src="/media/excel-icon.png" class="utility pointer excel" data-chart="0">
+        <img src="/media/trash-icon.png" class="utility pointer trash" style="margin-left: auto;" data-chart="0">
+    </div>
+
+    <div class="chart" data-chart="0">
+        <canvas id="0" width="16" height="9"></canvas>
+    </div>
+    <div class="chart-settings flex-column gap-row-narrow hidden" data-chart="0">
+
+        <div class="flex-column gap-row-narrow">
+            <label>Název</label>
+            <input type="text" name="name" data-chart="0" value="">
+        </div>
+
+        <div class="flex-column gap-row-narrow">
+            <label>SQL query</label>
+            <textarea placeholder="SELECT ... " name="query" data-chart="0"></textarea>
+        </div>
+
+        <div class="flex-column gap-row-narrow">
+            <label>Typ grafu</label>
+            <div class="flex-row gap-column-wide">
+                {% for chart_type in chart_types %}
+                <div data-purpose="chart-type-icon" data-chart="0" onclick="selectChartType(this)"
+                    data-chart-type="Sloupcový graf"
+                    class="chart-icon-container pointer"><img src="{{chart_type.icon_path}}"></div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="submit-settings" onclick="(() => saveSettings(this).then(resp => updateChart(...resp)))()" data-chart="0">
+            <input class="pointer" type="submit" data-submit="settings" value="Uložit">
+        </div>
+    </div>
+</div>
+</template>
+
+{% endblock %}
+
+{% block js %}
+<script>
+    const chartContainers = document.querySelectorAll('.chart-container');
+    const designerMode = true;
+    const chartIconSrc = '/media/chart-icon.png';
+    const settingsIconSrc = '/media/settings-icon.png';
+    const getChartDataURL = "{% url 'ps_fp09:get_chart_data' %}";
+    const editChartDataURL = "{% url 'ps_fp09:edit_chart_meta_data' %}";
+    const submitSettingsButtons = document.querySelectorAll('[data-submit="settings"]')
+    const chartTypeIcons = document.querySelectorAll('[data-purpose="chart-type-icon"]')
+
+    function selectChartType(target) {
+        let chartSettingsContainer = document.querySelector(`[class*="chart-settings"][data-chart="${target.dataset.chart}"]`);
+        chartSettingsContainer.querySelectorAll('[data-purpose="chart-type-icon"]').forEach(icon => {
+            icon.classList.remove('selected');
+        });
+        event.target.classList.add('selected');
+    }
+
+    function createChart() {
+        let template = document.getElementById('chart-template');
+        let clone = template.content.cloneNode(true);
+        document.getElementById('main').append(clone);
+    }
+
+    function deleteChart(target) {
+        let chart = target.dataset.chart;
+        let chartContainer = document.querySelector(`[data-chart="${chart}"][class*="chart-container"]`);
+        chartContainer.remove()
+
+    }
+
+    async function saveSettings(target) {
+        let chartId = target.dataset.chart;
+        let dashboardId = "{{dashboard.id}}";
+        let container = target.parentElement;
+        let name = document.querySelector(`[name="name"][data-chart="${target.dataset.chart}"]`).value;
+        let query = document.querySelector(`[name="query"][data-chart="${target.dataset.chart}"]`).value;
+        let type = document.querySelector(`[data-chart="${target.dataset.chart}"][data-purpose="chart-type-icon"]`).dataset.chartType;
+
+        const resp = await fetch(editChartDataURL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 'dashboardId': dashboardId, 'chartId': chartId, 'name': name, 'query': query, 'type': type }),
+
+        })
+
+        let updatedChartId = await resp.json();
+
+        return [container, updatedChartId];
+    }
+
+    function updateChart(chartContainer, chartId) {
+        chartContainer.querySelectorAll('[data-chart]').forEach(el => {
+            el.dataset.chart = chartId;
+        });
+        window.location.reload();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        addLoaders();
+        updateDashboard();
+    })
+
+    function showUtilities(target) {
+        if (designerMode == true) {
+            if (target.dataset.loaded == "true") {
+                target.querySelector('div').classList.remove('hidden');
+            }
+        }
+    }
+
+    function hideUtilities(target) {
+        target.querySelector('div').classList.add('hidden');
+    }
+
+    function switchStateHandler(target) {
+        let chart = target.dataset.chart;
+        let chartContainer = document.querySelector(`[data-chart="${chart}"][class*="chart-container"]`)
+        let state = target.dataset.state;
+        switchState(state, chartContainer, target)
+    }
+
+    function extendChart(target) {
+        let chart = target.dataset.chart;
+        let chartContainers = document.querySelectorAll(`[class*="chart-container"]`);
+        let chartContainer = document.querySelector(`[data-chart="${chart}"][class*="chart-container"]`);
+        if (chartContainer.style.width != "100%"){
+            chartContainers.forEach(container => {
+                if (container.dataset.chart != chart){ 
+                    container.classList.toggle("hidden");
+                }
+                else {
+                    container.style.width = "100%";
+                    container.style.height = "90vh";
+                }
+            })
+        }
+        else {
+            chartContainers.forEach(container => {
+                if (container.dataset.chart != chart){ 
+                    container.classList.toggle("hidden");
+                }
+                else {
+                    container.style.removeProperty('width');
+                    container.style.removeProperty('height');
+                }
+            })
+        }
+    }
+
+
+    function exportXLSX(target) {
+        let chart = target.dataset.chart
+        console.log(chart.data)
+    }
+
+    function switchState(previousState, chartContainer, icon) {
+        chartContainer.querySelector('[class*="chart"]').classList.toggle('hidden');
+        chartContainer.querySelector('[class*="chart-settings"]').classList.toggle('hidden');
+        if (previousState == "settings") {
+            icon.src = chartIconSrc;
+            icon.dataset.state = "chart";
+        } else {
+            icon.src = settingsIconSrc;
+            icon.dataset.state = "settings";
+        }
+    }
+
+    function addLoaders() {
+        chartContainers.forEach(container => {
+            let loader = document.createElement('div');
+            loader.dataset.chart = container.dataset.chart;
+            let emptyDiv = document.createElement('div');
+            loader.classList.add("lds-circle");
+            container.append(loader);
+            loader.append(emptyDiv);
+        })
+    }
+
+    function updateDashboard() {
+        let promises = []
+        chartContainers.forEach(container => {
+            const promise = new Promise((resolve, reject) => getChartData(container).then((data) => plotChartData(...data)));
+            promises.push(promise);
+        })
+    }
+
+    async function getChartData(chartContainer) {
+        let chartId = chartContainer.dataset.chart;
+
+        const resp = await fetch(getChartDataURL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({'chartId': chartId}),
+        })
+
+        let chartData = await resp.json();
+
+        return [chartContainer, chartData]
+    }
+
+    function plotChartData(chartContainer, chartData) {
+        showLoadedChart(chartContainer);
+        const ctx = document.getElementById(chartContainer.dataset.chart);
+        const labels = chartData['data']['results'].map(item => item[0]);
+        const values = chartData['data']['results'].map(item => item[1]);
+        console.log(labels)
+        console.log(values)
+        const chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: values,
+                    trendlineLinear: {
+                        style: "rgba(0 0 255 / 0.5)",
+                        lineStyle: "dotted",
+                        width: 2,
+                        projection: false,
+                    }
+                }],
+                label: 'trt',
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false,
+                    },
+                    title: {
+                        text: chartContainer.dataset.chartName,
+                        display:  true,
+                        font: {
+                            family: 'Noto Sans',
+                            size: 13,
+                        },
+                    },
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            font: {
+                                family: 'Noto Sans',
+                                size: 12,
+                            }
+                        }
+                    }
+                },
+            }
+        })
+    }
+
+    function showLoadedChart(chartContainer) {
+        chartContainer.querySelector('.lds-circle').remove();
+        chartContainer.querySelector('.chart').classList.remove('hidden');
+        chartContainer.dataset.loaded = "true";
+    }
+
+</script>
+{% endblock %}
